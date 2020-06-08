@@ -65,6 +65,27 @@ enum {
 	UART2_IO_SEL_USB,
 };
 
+enum {
+	GPIO1B4_SHIFT           = 4,
+	GPIO1B4_MASK            = GENMASK(7, 4),
+	GPIO1B4_GPIO            = 0,
+	GPIO1B4_SPI0_MOSI,
+	GPIO1B4_I2C2M1_SCL,
+	GPIO1B4_UART1_RX_M1,
+
+	GPIO1B5_SHIFT           = 0,
+	GPIO1B5_MASK            = GENMASK(3, 0),
+	GPIO1B5_GPIO            = 0,
+	GPIO1B5_SPI0_MISO,
+	GPIO1B5_I2C2M1_SDA,
+	GPIO1B5_UART1_TX_M1,
+
+	UART1_IO_SEL_SHIFT  = 13,
+	UART1_IO_SEL_MASK   = GENMASK(13, 13),
+	UART1_IO_SEL_M0     = 0,
+	UART1_IO_SEL_M1,
+};
+
 #define SECURE_FIRE_WALL 0xff590040
 
 int arch_cpu_init(void)
@@ -81,11 +102,22 @@ int arch_cpu_init(void)
 	return 0;
 }
 
-/*
- * Default use UART2_TX/RX_M0(TX: GPIO4_A2, RX: GPIO4_A3)
- */
 void board_debug_uart_init(void)
 {
+
+#if defined(CONFIG_DEBUG_UART_BASE) && (CONFIG_DEBUG_UART_BASE == 0xff540000)
+	static struct rk1808_grf * const grf = (void *)GRF_BASE;
+	/* Enable early UART1 channel m1 on the rk1806 */
+    rk_clrsetreg(&grf->iofunc_con0, UART1_IO_SEL_MASK,
+             UART1_IO_SEL_M1 << UART1_IO_SEL_SHIFT);
+
+    /* Switch iomux */
+    rk_clrsetreg(&grf->gpio1b_iomux_h,
+             GPIO1B4_MASK | GPIO1B5_MASK,
+             GPIO1B4_UART1_RX_M1 << GPIO1B4_SHIFT |
+             GPIO1B5_UART1_TX_M1 << GPIO1B5_SHIFT);
+#endif
+
 #ifdef CONFIG_TPL_BUILD
 	static struct rk1808_grf * const grf = (void *)GRF_BASE;
 
