@@ -124,6 +124,7 @@ struct connector_state {
 	int type;
 	int output_type;
 	int color_space;
+	unsigned int bpc;
 
 	struct {
 		u32 *lut;
