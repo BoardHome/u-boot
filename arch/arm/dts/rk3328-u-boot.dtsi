@@ -93,3 +93,7 @@
 &sdmmc0_dectn {
 	u-boot,dm-spl;
 };
+
+&pinctrl {
+	u-boot,dm-pre-reloc;
+};
