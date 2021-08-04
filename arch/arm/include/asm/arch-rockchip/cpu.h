@@ -23,6 +23,7 @@
 #define ROCKCHIP_SOC_RK3288W    (ROCKCHIP_CPU_RK3288 | 0x01)
 #define ROCKCHIP_SOC_RK3308	(ROCKCHIP_CPU_RK3308 | 0x00)
 #define ROCKCHIP_SOC_RK3308B	(ROCKCHIP_CPU_RK3308 | 0x01)
+#define ROCKCHIP_SOC_RK3308BS	(ROCKCHIP_CPU_RK3308 | 0x02)
 
 static inline int rockchip_soc_id(void)
 {
@@ -38,9 +39,14 @@ static inline int rockchip_soc_id(void)
 	 * RK3308:  0xcea (3306 in decimal)
 	 * RK3308B: 0x3308
 	 *
+	 * RK3308BS: 0x3308c
 	 */
-	if (readl(0xFF000800) == 3306)
+	u32 v = readl(0xFF000800);
+
+	if (v == 3306)
 		return ROCKCHIP_SOC_RK3308;
+	else if (v == 0x3308c)
+		return ROCKCHIP_SOC_RK3308BS;
 	else
 		return ROCKCHIP_SOC_RK3308B;
 #else
@@ -65,5 +71,6 @@ ROCKCHIP_SOC(rk3288, RK3288)
 ROCKCHIP_SOC(rk3288w, RK3288W)
 ROCKCHIP_SOC(rk3308, RK3308)
 ROCKCHIP_SOC(rk3308b, RK3308B)
+ROCKCHIP_SOC(rk3308bs, RK3308BS)
 
 #endif
