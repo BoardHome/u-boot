@@ -4,7 +4,6 @@
 #
 # SPDX-License-Identifier: GPL-2.0
 #
-
 set -e
 BOARD=$1
 SUBCMD=$1
@@ -693,6 +692,11 @@ pack_loader_image()
 		${RKTOOLS}/boot_merger ${BIN_PATH_FIXUP} $ini
 		echo "pack loader okay! Input: $ini"
 	fi
+
+	# adjust loader name
+	local old_loader=$(ls *_loader_*.bin)
+	local new_loader=$(echo $old_loader|egrep -o ".*_loader")_$(echo $old_loader|egrep -o "v.*bin")
+	[ "$old_loader" != "$new_loader" ] && mv $old_loader $new_loader
 
 	cd - && mv ${RKBIN}/*_loader_*.bin ./
 }
