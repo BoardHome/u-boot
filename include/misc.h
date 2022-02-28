@@ -16,6 +16,7 @@
 #define IOCTL_REQ_STOP		_IO('m', 0x02)
 #define IOCTL_REQ_POLL		_IO('m', 0x03)
 #define IOCTL_REQ_CAPABILITY	_IO('m', 0x04)
+#define IOCTL_REQ_DATA_SIZE	_IO('m', 0x05)
 
 enum misc_mode {
 	DECOM_LZ4	= BIT(0),
@@ -149,18 +150,19 @@ int misc_otp_write(struct udevice *dev, int offset, const void *buf, int size);
 struct decom_param {
 	unsigned long addr_src;
 	unsigned long addr_dst;
-	u64 size;
+	u64 size_src;	/* compressed */
+	u64 size_dst;	/* decompressed, to be filled for output */
 	enum misc_mode mode;
+	u32 flags;
 };
 
-struct udevice *misc_decompress_get_device(u32 capability);
-int misc_decompress_start(struct udevice *dev, unsigned long src,
-			  unsigned long dst, unsigned long size);
-int misc_decompress_stop(struct udevice *dev);
-bool misc_decompress_is_complete(struct udevice *dev);
-int misc_decompress_process(unsigned long src,
-			    unsigned long dst,
-			    unsigned long limit_size,
-			    u32 cap);
+/* function flags for decompress */
+#define DCOMP_FLG_IRQ_ONESHOT	BIT(0)
 
+void misc_decompress_async(u8 comp);
+void misc_decompress_sync(u8 comp);
+int misc_decompress_cleanup(void);
+int misc_decompress_process(unsigned long dst, unsigned long src,
+			    unsigned long src_len, u32 cap, bool sync,
+			    u64 *size, u32 flags);
 #endif	/* _MISC_H_ */

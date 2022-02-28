@@ -12,6 +12,7 @@
 #include <linux/mtd/spinand.h>
 
 #define SPINAND_MFR_MACRONIX		0xC2
+#define MACRONIX_ECCSR_MASK		0x0F
 
 static SPINAND_OP_VARIANTS(read_cache_variants,
 		SPINAND_PAGE_READ_FROM_CACHE_X4_OP(0, 1, NULL, 0),
@@ -50,6 +51,23 @@ static const struct mtd_ooblayout_ops mx35lfxge4ab_ooblayout = {
 	.rfree = mx35lfxge4ab_ooblayout_free,
 };
 
+static int mx35ufxge4ac_ooblayout_free(struct mtd_info *mtd, int section,
+				       struct mtd_oob_region *region)
+{
+	if (section > 3)
+		return -ERANGE;
+
+	region->offset = (16 * section) + 2;
+	region->length = 14;
+
+	return 0;
+}
+
+static const struct mtd_ooblayout_ops mx35ufxge4ac_ooblayout = {
+	.ecc = mx35lfxge4ab_ooblayout_ecc,
+	.rfree = mx35ufxge4ac_ooblayout_free,
+};
+
 static int mx35lf1ge4ab_get_eccsr(struct spinand_device *spinand, u8 *eccsr)
 {
 	struct spi_mem_op op = SPI_MEM_OP(SPI_MEM_OP_CMD(0x7c, 1),
@@ -57,7 +75,12 @@ static int mx35lf1ge4ab_get_eccsr(struct spinand_device *spinand, u8 *eccsr)
 					  SPI_MEM_OP_DUMMY(1, 1),
 					  SPI_MEM_OP_DATA_IN(1, eccsr, 1));
 
-	return spi_mem_exec_op(spinand->slave, &op);
+	int ret = spi_mem_exec_op(spinand->slave, &op);
+	if (ret)
+		return ret;
+
+	*eccsr &= MACRONIX_ECCSR_MASK;
+	return 0;
 }
 
 static int mx35lf1ge4ab_ecc_get_status(struct spinand_device *spinand,
@@ -112,6 +135,42 @@ static const struct spinand_info macronix_spinand_table[] = {
 					      &update_cache_variants),
 		     SPINAND_HAS_QE_BIT,
 		     SPINAND_ECCINFO(&mx35lfxge4ab_ooblayout, NULL)),
+	SPINAND_INFO("MX35LF2GE4AD", 0x26,
+		     NAND_MEMORG(1, 2048, 64, 64, 2048, 2, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(&mx35lfxge4ab_ooblayout,
+				     mx35lf1ge4ab_ecc_get_status)),
+	SPINAND_INFO("MX35LF4GE4AD", 0x37,
+		     NAND_MEMORG(1, 4096, 128, 64, 2048, 2, 1, 1),
+		     NAND_ECCREQ(8, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(&mx35lfxge4ab_ooblayout,
+				     mx35lf1ge4ab_ecc_get_status)),
+	SPINAND_INFO("MX35UF1GE4AC", 0x92,
+		     NAND_MEMORG(1, 2048, 64, 64, 1024, 1, 1, 1),
+		     NAND_ECCREQ(4, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(&mx35ufxge4ac_ooblayout,
+				     mx35lf1ge4ab_ecc_get_status)),
+	SPINAND_INFO("MX35UF2GE4AC", 0xA2,
+		     NAND_MEMORG(1, 2048, 64, 64, 2048, 1, 1, 1),
+		     NAND_ECCREQ(4, 512),
+		     SPINAND_INFO_OP_VARIANTS(&read_cache_variants,
+					      &write_cache_variants,
+					      &update_cache_variants),
+		     SPINAND_HAS_QE_BIT,
+		     SPINAND_ECCINFO(&mx35ufxge4ac_ooblayout,
+				     mx35lf1ge4ab_ecc_get_status)),
 };
 
 static int macronix_spinand_detect(struct spinand_device *spinand)

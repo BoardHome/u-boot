@@ -186,7 +186,7 @@ fdt_addr_t fdtdec_get_addr(const void *blob, int node,
 	return fdtdec_get_addr_size(blob, node, prop_name, NULL);
 }
 
-#if defined(CONFIG_PCI) && defined(CONFIG_DM_PCI)
+#if defined(CONFIG_PCI) && CONFIG_IS_ENABLED(DM_PCI)
 int fdtdec_get_pci_addr(const void *blob, int node, enum fdt_pci_space type,
 		const char *prop_name, struct fdt_pci_addr *addr)
 {
@@ -1286,8 +1286,10 @@ int fdtdec_setup(void)
 	gd->fdt_blob = (ulong *)&_end;
 
 #    ifdef CONFIG_USING_KERNEL_DTB
-	gd->fdt_blob_kern = (ulong *)((ulong)gd->fdt_blob +
-					ALIGN(fdt_totalsize(gd->fdt_blob), 8));
+	gd->fdt_blob_kern = (ulong *)ALIGN((ulong)gd->fdt_blob +
+				fdt_totalsize(gd->fdt_blob), 8);
+	if (fdt_check_header(gd->fdt_blob_kern))
+		gd->fdt_blob_kern = NULL;
 #    endif
 #  endif
 # elif defined(CONFIG_OF_BOARD)
@@ -1301,8 +1303,12 @@ int fdtdec_setup(void)
 # endif
 # ifndef CONFIG_SPL_BUILD
 	/* Allow the early environment to override the fdt address */
+#  if CONFIG_IS_ENABLED(OF_PRIOR_STAGE)
+	gd->fdt_blob = (void *)prior_stage_fdt_address;
+#  else
 	gd->fdt_blob = (void *)env_get_ulong("fdtcontroladdr", 16,
 						(uintptr_t)gd->fdt_blob);
+#  endif
 # endif
 
 # if CONFIG_IS_ENABLED(MULTI_DTB_FIT)

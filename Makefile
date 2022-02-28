@@ -605,6 +605,7 @@ ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-stack-usage.sh $(CC)),y)
 endif
 
 KBUILD_CFLAGS += $(call cc-option,-Wno-format-nonliteral)
+KBUILD_CFLAGS += $(call cc-disable-warning, address-of-packed-member)
 
 # turn jbsr into jsr for m68k
 ifeq ($(ARCH),m68k)
@@ -906,11 +907,12 @@ else ifeq ($(CONFIG_OF_SEPARATE),y)
 u-boot-dtb.bin: u-boot-nodtb.bin dts/dt.dtb FORCE
 	$(call if_changed,cat)
 
-ifneq ($(wildcard dts/kern.dtb),)
+EMBED_KERN_DTB := $(CONFIG_EMBED_KERNEL_DTB_PATH:"%"=%)
+ifneq ($(wildcard $(EMBED_KERN_DTB)),)
 u-boot-dtb-kern.bin: u-boot-dtb.bin FORCE
 	$(call if_changed,copy)
 	$(call if_changed,truncate)
-u-boot.bin: u-boot-dtb-kern.bin dts/kern.dtb FORCE
+u-boot.bin: u-boot-dtb-kern.bin $(EMBED_KERN_DTB) FORCE
 	$(call if_changed,cat)
 else
 u-boot.bin: u-boot-dtb.bin FORCE
@@ -1513,7 +1515,7 @@ CLEAN_DIRS  += $(MODVERDIR) \
 			$(filter-out include, $(shell ls -1 $d 2>/dev/null))))
 
 CLEAN_FILES += include/bmp_logo.h include/bmp_logo_data.h \
-	       boot* u-boot* MLO* SPL System.map fit-dtb.blob *.bin *.img
+	       boot* u-boot* MLO* SPL System.map fit-dtb.blob *.bin *.img *.gz .cc
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated spl tpl \

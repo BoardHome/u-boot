@@ -47,6 +47,26 @@ static void boot_devtype_init(void)
 	if (done)
 		return;
 
+	/*
+	 * The loader stage does not support SATA, and the boot device
+	 * can only be other storage. Therefore, it is necessary to
+	 * initialize the SATA device before judging the initialization
+	 * of atag boot device
+	 */
+#if defined(CONFIG_SCSI) && defined(CONFIG_CMD_SCSI) && defined(CONFIG_AHCI)
+	ret = run_command("scsi scan", 0);
+	if (!ret) {
+		ret = run_command("scsi dev 0", 0);
+		if (!ret) {
+			devtype = "scsi";
+			devnum = "0";
+			env_set("devtype", devtype);
+			env_set("devnum", devnum);
+			goto finish;
+		}
+	}
+#endif
+
 	/* High priority: get bootdev from atags */
 #ifdef CONFIG_ROCKCHIP_PRELOADER_ATAGS
 	ret = param_parse_bootdev(&devtype, &devnum);
@@ -55,7 +75,7 @@ static void boot_devtype_init(void)
 		env_set("devtype", devtype);
 		env_set("devnum", devnum);
 
-#ifdef CONFIG_DM_MMC
+#ifdef CONFIG_MMC
 		if (!strcmp("mmc", devtype))
 			mmc_initialize(gd->bd);
 #endif
@@ -74,7 +94,7 @@ static void boot_devtype_init(void)
 #endif
 
 	/* Low priority: if not get bootdev by atags, scan all possible */
-#ifdef CONFIG_DM_MMC
+#ifdef CONFIG_MMC
 	mmc_initialize(gd->bd);
 #endif
 	ret = run_command_list(devtype_num_set, -1, 0);
@@ -130,6 +150,9 @@ static int get_bootdev_type(void)
 	} else if (!strcmp(devtype, "mtd")) {
 		type = IF_TYPE_MTD;
 		boot_media = "mtd";
+	} else if (!strcmp(devtype, "scsi")) {
+		type = IF_TYPE_SCSI;
+		boot_media = "scsi";
 	} else {
 		/* Add new to support */
 	}
@@ -251,21 +274,6 @@ __weak int rockchip_dnl_key_pressed(void)
 #ifdef CONFIG_CMD_ROCKUSB
 	return key_is_pressed(key_read(KEY_VOLUMEUP));
 #else
-	/*
-	 * It's possible that USB is disabled due to developer needs
-	 * a critial size of u-boot.bin.
-	 *
-	 * Disabling USB makes vbus can't be detected any more, so that
-	 * we add menu key and the events trigger are changed:
-	 *
-	 * - rockusb mode(fallback to bootrom mode):
-	 *	"recovery key pressed + vbus=1" => "menu key pressed"
-	 *
-	 * - recovery mode:
-	 *	"recovery key pressed + vbus=0" => "recovery key pressed"
-	 *
-	 * At the most time, USB is enabled and this feature is not applied.
-	 */
 	return key_is_pressed(key_read(KEY_MENU));
 #endif
 
@@ -294,13 +302,32 @@ __weak int rockchip_dnl_key_pressed(void)
 
 void setup_download_mode(void)
 {
-	int vbus = 1;
+	int vbus = 1; /* Assumed 1 in case of no rockusb */
 
 	boot_devtype_init();
 
-	/* recovery key or "ctrl+d" */
+	/*
+	 * rockchip_dnl_key_pressed():
+	 *
+	 * (1) volume-up key (default)
+	 * (2) menu key (If no rockusb)
+	 *
+	 * It's possible that USB is disabled due to developer needs
+	 * a critial size of u-boot.bin.
+	 *
+	 * Disabling USB makes vbus can't be detected any more, so that
+	 * we add menu key. The events trigger are changed:
+	 *
+	 * - rockusb mode(actually fallback to bootrom mode):
+	 *	"volume-up pressed + vbus=1" replaced with "menu pressed"
+	 * - recovery mode:
+	 *	"volume-up pressed + vbus=0" replaced with "volume-up pressed"
+	 *
+	 * At the most time, USB is enabled and this feature is not applied.
+	 */
 	if (rockchip_dnl_key_pressed() || is_hotkey(HK_ROCKUSB_DNL)) {
-		printf("download key pressed... ");
+		printf("download %skey pressed... ",
+		       is_hotkey(HK_ROCKUSB_DNL) ? "hot" : "");
 #ifdef CONFIG_CMD_ROCKUSB
 		vbus = rockchip_u2phy_vbus_detect();
 #endif
@@ -446,8 +473,6 @@ static int rockchip_read_distro_dtb(void *fdt_addr)
 	char devnum_part[12];
 	char fdt_hex_str[19];
 	char *fs_argv[5];
-	int size;
-	int ret;
 
 	if (!rockchip_get_bootdev() || !fdt_addr)
 		return -ENODEV;
@@ -486,55 +511,46 @@ static int rockchip_read_distro_dtb(void *fdt_addr)
 
 int rockchip_read_dtb_file(void *fdt_addr)
 {
-	int hash_size;
-	char *hash;
-	u32 size;
+	int hash_size = 0;
 	int ret = -1;
+	u32 fdt_size;
+	char *hash;
 
-#ifdef CONFIG_ROCKCHIP_FIT_IMAGE
-	if (ret) {
-		hash_size = 0;
-		ret = rockchip_read_fit_dtb(fdt_addr, &hash, &hash_size);
-	}
-#endif
-#ifdef CONFIG_ROCKCHIP_UIMAGE
-	if (ret) {
-		hash_size = 0;
-		ret = rockchip_read_uimage_dtb(fdt_addr, &hash, &hash_size);
-	}
-#endif
+	/* init from storage if resource list is empty */
+	resource_traverse_init_list();
+
+	/* distro */
 #ifdef CONFIG_ROCKCHIP_EARLY_DISTRO_DTB
-	if (ret) {
-		hash_size = 0;
-		ret = rockchip_read_distro_dtb(fdt_addr);
+	ret = rockchip_read_distro_dtb(fdt_addr);
+	if (!ret) {
+		if (!sysmem_alloc_base(MEM_FDT, (phys_addr_t)fdt_addr,
+		     ALIGN(fdt_size, RK_BLK_SIZE) + CONFIG_SYS_FDT_PAD))
+			return -ENOMEM;
+
+		return 0;
 	}
 #endif
-#ifdef CONFIG_ROCKCHIP_RESOURCE_IMAGE
+	/* others(android/fit/uimage) */
+	ret = rockchip_read_resource_dtb(fdt_addr, &hash, &hash_size);
 	if (ret) {
-		hash_size = 0;
-		ret = rockchip_read_resource_dtb(fdt_addr, &hash, &hash_size);
-	}
-#endif
-	if (ret) {
-		printf("Failed to load DTB\n");
+		printf("Failed to load DTB, ret=%d\n", ret);
 		return ret;
 	}
 
 	if (fdt_check_header(fdt_addr)) {
-		printf("Get a bad DTB file !\n");
+		printf("Invalid DTB magic !\n");
 		return -EBADF;
 	}
 
-	size = fdt_totalsize(fdt_addr);
-
+	fdt_size = fdt_totalsize(fdt_addr);
 #ifdef CONFIG_ROCKCHIP_DTB_VERIFY
-	if (hash_size && fdt_check_hash(fdt_addr, size, hash, hash_size)) {
-		printf("Get a bad hash of DTB !\n");
+	if (hash_size && fdt_check_hash(fdt_addr, fdt_size, hash, hash_size)) {
+		printf("Invalid DTB hash !\n");
 		return -EBADF;
 	}
 #endif
 	if (!sysmem_alloc_base(MEM_FDT, (phys_addr_t)fdt_addr,
-			       ALIGN(size, RK_BLK_SIZE) +
+			       ALIGN(fdt_size, RK_BLK_SIZE) +
 			       CONFIG_SYS_FDT_PAD))
 		return -ENOMEM;
 

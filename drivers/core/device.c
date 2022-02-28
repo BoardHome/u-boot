@@ -55,7 +55,18 @@ static int device_bind_common(struct udevice *parent, const struct driver *drv,
 		/* For mmc/nand/spiflash, just update from kernel dtb instead bind again*/
 		if (drv->id == UCLASS_MMC || drv->id == UCLASS_RKNAND ||
 		    drv->id == UCLASS_SPI_FLASH || drv->id == UCLASS_MTD ||
+		    drv->id == UCLASS_PCI || drv->id == UCLASS_AHCI ||
 			drv->id == UCLASS_GPIO) {
+			/*
+			 * Reject all mmc device from kernel.
+			 *
+			 * - we always follow the rule: use mmc device from U-Boot
+			 * - avoid alias id on defferent device between U-Boot and kernel
+			 */
+			if ((gd->flags & GD_FLG_KDTB_READY) &&
+			     (drv->id == UCLASS_MMC))
+				return 0;
+
 			list_for_each_entry(dev, &uc->dev_head, uclass_node) {
 				if (!strcmp(name, dev->name)) {
 					debug("%s do not bind dev already in list %s\n",
@@ -80,13 +91,14 @@ static int device_bind_common(struct udevice *parent, const struct driver *drv,
 			    (dev_read_bool(dev, "u-boot,dm-pre-reloc") ||
 			     dev_read_bool(dev, "u-boot,dm-spl"))) {
 
-				/* Always use crypto node from U-Boot dtb */
-				if (drv->id == UCLASS_CRYPTO) {
+				/* Always use these node from U-Boot dtb */
+				if (drv->id == UCLASS_CRYPTO ||
+				    drv->id == UCLASS_WDT) {
 					debug("%s do not delete uboot dev: %s\n",
 					      __func__, dev->name);
 					return 0;
 				} else {
-					list_del(&dev->uclass_node);
+					list_del_init(&dev->uclass_node);
 				}
 			}
 		}
