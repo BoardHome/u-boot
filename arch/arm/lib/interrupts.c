@@ -28,7 +28,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#if defined(CONFIG_SPL_BUILD) || !defined(CONFIG_IRQ)
+#if !CONFIG_IS_ENABLED(IRQ)
 int interrupt_init (void)
 {
 	/*
@@ -99,7 +99,13 @@ void show_regs (struct pt_regs *regs)
 		processor_modes[processor_mode (regs)],
 		thumb_mode (regs) ? " (T)" : "");
 
-	iomem_show("sp", regs->ARM_sp, 0x00, 0xfc);
+#ifdef CONFIG_ROCKCHIP_CRASH_DUMP
+	iomem_show_by_compatible("-cru", 0, 0x400);
+	iomem_show_by_compatible("-pmucru", 0, 0x400);
+	iomem_show_by_compatible("-grf", 0, 0x400);
+	iomem_show_by_compatible("-pmugrf", 0, 0x400);
+#endif
+
 	dump_core_stack(regs);
 }
 
@@ -164,7 +170,7 @@ void do_fiq (struct pt_regs *pt_regs)
 	bad_mode ();
 }
 
-#if defined(CONFIG_SPL_BUILD) || !defined(CONFIG_IRQ)
+#if !CONFIG_IS_ENABLED(IRQ)
 void do_irq (struct pt_regs *pt_regs)
 {
 	efi_restore_gd();

@@ -201,6 +201,11 @@
 		};
 	};
 
+	psci: psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	qos_npu: qos@fe850000 {
 		compatible = "syscon";
 		reg = <0x0 0xfe850000 0x0 0x20>;
@@ -1000,7 +1005,7 @@
 	};
 
 	sfc: sfc@ffc50000 {
-		compatible = "rockchip,rksfc";
+		compatible = "rockchip,rksfc","rockchip,sfc";
 		reg = <0x0 0xffc50000 0x0 0x4000>;
 		interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&cru SCLK_SFC>, <&cru HCLK_SFC>;

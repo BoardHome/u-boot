@@ -204,7 +204,7 @@
 				     <&cpu_b2>, <&cpu_b3>;
 	};
 
-	psci {
+	psci: psci {
 		compatible = "arm,psci-0.2";
 		method = "smc";
 	};
@@ -748,6 +748,14 @@
 		compatible = "rockchip,rk3368-timer", "rockchip,rk3288-timer";
 		reg = <0x0 0xff810000 0x0 0x20>;
 		interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	crypto: crypto@ff8a0000 {
+		compatible = "rockchip,rk3368-crypto";
+		reg = <0x0 0xff8a0000 0x0 0x10000>;
+		clock-names = "sclk_crypto";
+		clocks = <&cru SCLK_CRYPTO>;
+		status = "disabled";
 	};
 
 	gic: interrupt-controller@ffb71000 {

@@ -117,6 +117,8 @@
 #define RK3288_BCSH_BCS				0x01b4
 #define RK3288_BCSH_H				0x01b8
 #define RK3288_GRF_SOC_CON15			0x03a4
+
+#define RK3288_MCU_BYPASS_WPORT			0x2200
 /* register definition end */
 
 /* rk3368 register definition */
@@ -876,6 +878,12 @@
 #define RK3036_HWC_LUT_ADDR		0x800
 /* rk3036 register definition end */
 
+/* rk3126 register definition */
+#define RK3126_WIN1_MST				0x0004c
+#define RK3126_WIN1_DSP_INFO			0x00050
+#define RK3126_WIN1_DSP_ST			0x00054
+/* rk3126 register definition end */
+
 /* rk3366 register definition */
 #define RK3366_LIT_REG_CFG_DONE			0x00000
 #define RK3366_LIT_VERSION			0x00004
@@ -965,4 +973,11 @@
 #define RK1808_GRF_PD_VO_CON1			0x00000444
 /* rk1808 register definition end*/
 
+/* RV1126 register definition start */
+#define RV1126_WIN2_CTRL0			0x0190
+#define RV1126_WIN2_VIR0_1			0x0198
+#define RV1126_WIN2_MST0			0x01a0
+#define RV1126_WIN2_DSP_INFO0			0x01a4
+#define RV1126_WIN2_DSP_ST0			0x01a8
+/* RV1126 register definition end   */
 #endif /* _ROCKCHIP_VOP_REG_H */

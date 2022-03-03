@@ -6,10 +6,12 @@
 #include <common.h>
 #include <android_image.h>
 #include <boot_rkimg.h>
+#include <ramdisk.h>
 #include <asm/io.h>
 #include <asm/arch/grf_rk1808.h>
 #include <asm/arch/hardware.h>
 #include <asm/arch/rk_atags.h>
+#include <asm/arch/rockchip_smccc.h>
 #include <asm/gpio.h>
 #include <debug_uart.h>
 
@@ -42,6 +44,7 @@ static struct mm_region rk1808_mem_map[] = {
 struct mm_region *mem_map = rk1808_mem_map;
 
 #define GRF_BASE	0xfe000000
+#define PMUGRF_BASE	0xfe020000
 
 enum {
 	GPIO4A3_SHIFT           = 12,
@@ -64,11 +67,18 @@ enum {
 	UART2_IO_SEL_USB,
 };
 
+#define SECURE_FIRE_WALL 0xff590040
+
 int arch_cpu_init(void)
 {
 	/* Set cif qos priority */
 	writel(QOS_PRIORITY_LEVEL(2, 2), NIU_CIF_ADDR);
 	writel(QOS_PRIORITY_LEVEL(2, 2), NIU_ISP_ADDR);
+
+	/* Set dram to unsecure */
+#ifdef CONFIG_SPL_BUILD
+	writel(0, SECURE_FIRE_WALL);
+#endif
 
 	return 0;
 }
@@ -79,7 +89,7 @@ int arch_cpu_init(void)
 void board_debug_uart_init(void)
 {
 #ifdef CONFIG_TPL_BUILD
-	static struct rk1808_grf * const grf = (void *)GRF_BASE;
+	struct rk1808_grf * const grf = (void *)GRF_BASE;
 
 	/* Enable early UART2 channel m0 on the rk1808 */
 	rk_clrsetreg(&grf->iofunc_con0, UART2_IO_SEL_MASK,
@@ -186,6 +196,15 @@ static int env_fixup_ramdisk_addr_r(void)
 	ulong ramdisk_addr_r;
 	int ret;
 
+	/*
+	 * Don't rely on CONFIG_DM_RAMDISK since it can be a default
+	 * configuration after disk/part_rkram.c was introduced.
+	 *
+	 * This is compatible code.
+	 */
+	if (!dm_ramdisk_is_enabled())
+		return 0;
+
 	dev_desc = rockchip_get_bootdev();
 	if (!dev_desc) {
 		printf("%s: dev_desc is NULL!\n", __func__);
@@ -208,6 +227,19 @@ static int env_fixup_ramdisk_addr_r(void)
 }
 #endif
 
+int rk_board_init(void)
+{
+	struct rk1808_pmugrf * const pmugrf = (void *)PMUGRF_BASE;
+
+	/* Set GPIO0_C2 default to pull down from normal */
+	rk_clrsetreg(&pmugrf->gpio0c_p, 0x30, 0x20);
+
+#if defined(CONFIG_ROCKCHIP_SMCCC) && defined(CONFIG_ROCKCHIP_RK1806)
+	sip_smc_get_sip_version();
+#endif
+	return 0;
+}
+
 int rk_board_late_init(void)
 {
 #if defined(CONFIG_DM_RAMDISK) && !defined(CONFIG_SPL_BUILD)
@@ -215,4 +247,15 @@ int rk_board_late_init(void)
 #endif
 
 	return 0;
+}
+
+void mmc_gpio_init_direct(void)
+{
+	struct rk1808_grf * const grf = (void *)GRF_BASE;
+
+	/*
+	 * The rk1808's pin drive strength control must set to 2ma.
+	 */
+	rk_clrsetreg(&grf->gpio1a_e, 0xffff, 0x5555);
+	rk_clrsetreg(&grf->gpio1b_e, 0xff, 0x00);
 }

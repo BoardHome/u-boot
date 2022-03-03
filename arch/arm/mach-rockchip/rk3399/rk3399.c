@@ -76,6 +76,7 @@ void rockchip_stimer_init(void)
 #define NIU_PERILP_NSP_ADDR	0xffad8188
 #define QOS_PRIORITY_LEVEL(h, l)	((((h) & 3) << 8) | ((l) & 3))
 
+#ifndef CONFIG_TPL_BUILD
 int arch_cpu_init(void)
 {
 	struct rk3399_pmugrf_regs *pmugrf = (void *)PMUGRF_BASE;
@@ -118,6 +119,7 @@ int arch_cpu_init(void)
 
 	return 0;
 }
+#endif
 
 void board_debug_uart_init(void)
 {
@@ -133,7 +135,7 @@ void board_debug_uart_init(void)
 		     GRF_GPIO2C1_SEL_MASK,
 		     GRF_UART0BT_SOUT << GRF_GPIO2C1_SEL_SHIFT);
 #else
-	/* Enable early UART2 channel C on the RK3399/RK3399PRO */
+	/* Enable early UART2 channel on the RK3399/RK3399PRO */
 	rk_clrsetreg(&grf->gpio4c_iomux,
 		     GRF_GPIO4C3_SEL_MASK,
 		     GRF_UART2DGBC_SIN << GRF_GPIO4C3_SEL_SHIFT);

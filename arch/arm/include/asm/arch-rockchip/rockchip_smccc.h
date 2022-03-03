@@ -7,6 +7,8 @@
 #ifndef __ROCKCHIP_SMCCC_H__
 #define __ROCKCHIP_SMCCC_H__
 
+#include <linux/arm-smccc.h>
+
 /* Rockchip platform SiP call ID */
 #define SIP_ATF_VERSION			0x82000001
 #define SIP_ACCESS_REG			0x82000002
@@ -25,6 +27,7 @@
 #define SIP_VPU_RESET			0x8200000c
 #define SIP_SOC_BUS_DIV			0x8200000d
 #define SIP_LAST_LOG			0x8200000e
+#define SIP_AMP_CFG			0x82000022
 
 #define ROCKCHIP_SIP_CONFIG_DRAM_INIT		0x00
 #define ROCKCHIP_SIP_CONFIG_DRAM_SET_RATE	0x01
@@ -54,6 +57,11 @@
 #define SECURE_REG_RD			0x0
 #define SECURE_REG_WR			0x1
 
+/* SIP_AMP_CFG */
+#define AMP_PE_STATE			0x0
+#define AMP_BOOT_ARG01			0x1
+#define AMP_BOOT_ARG23			0x2
+
 /* Share mem page types */
 typedef enum {
 	SHARE_PAGE_TYPE_INVALID = 0,
@@ -70,6 +78,12 @@ typedef enum {
 int sip_smc_set_suspend_mode(unsigned long ctrl,
 			     unsigned long config1,
 			     unsigned long config2);
+
+/*
+ * sip_smc_amp_cfg() - config AMP
+ */
+int sip_smc_amp_cfg(unsigned long func, unsigned long arg0, unsigned long arg1,
+		    unsigned long arg2);
 
 /*
  * sip_smc_dram() - Set dram configure for trust.

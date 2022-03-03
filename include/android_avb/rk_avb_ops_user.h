@@ -7,6 +7,9 @@
 #ifndef RK_AVB_OPS_USER_H_
 #define RK_AVB_OPS_USER_H_
 
+#include <android_avb/avb_ops_user.h>
+#include <android_avb/libavb_ab.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -75,6 +78,17 @@ int rk_avb_set_slot_active(unsigned int *slot_number);
  * @return 0 if the command succeeded, -1 if it failed
  */
 int rk_avb_get_current_slot(char *select_slot);
+
+/**
+ * Append current slot to given partition name
+ *
+ * @param part_name	partition name
+ * @param slot		given slot suffix, auto append current slot if NULL
+ * @param new_name	partition name with slot suffix appended
+ *
+ * @return 0 if the command succeeded, -1 if it failed
+ */
+int rk_avb_append_part_slot(const char *part_name, char *new_name);
 
 /**
  * The android things defines permanent attributes to
@@ -310,6 +324,17 @@ int rk_avb_get_pub_key(struct rk_pub_key *pub_key);
  * init ab metadata
  */
 int rk_avb_init_ab_metadata(void);
+
+/**
+ * rockchip avb commands
+ */
+int rk_avb_write_perm_attr(uint16_t id, void *pbuf, uint16_t size);
+int rk_avb_read_perm_attr(uint16_t id, void *pbuf, uint16_t size);
+
+/**
+ * Do the device have boot slot
+ */
+bool rk_avb_ab_have_bootable_slot(void);
 
 #ifdef __cplusplus
 }

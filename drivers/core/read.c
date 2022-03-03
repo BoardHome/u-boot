@@ -15,6 +15,11 @@ int dev_read_u32_default(struct udevice *dev, const char *propname, int def)
 	return ofnode_read_u32_default(dev_ofnode(dev), propname, def);
 }
 
+int dev_read_s32_default(struct udevice *dev, const char *propname, int def)
+{
+	return ofnode_read_s32_default(dev_ofnode(dev), propname, def);
+}
+
 const char *dev_read_string(struct udevice *dev, const char *propname)
 {
 	return ofnode_read_string(dev_ofnode(dev), propname);
@@ -209,4 +214,9 @@ int dev_read_resource_byname(struct udevice *dev, const char *name,
 			     struct resource *res)
 {
 	return ofnode_read_resource_byname(dev_ofnode(dev), name, res);
+}
+
+u64 dev_translate_address(struct udevice *dev, const fdt32_t *in_addr)
+{
+	return ofnode_translate_address(dev_ofnode(dev), in_addr);
 }

@@ -25,15 +25,13 @@
 #define CONFIG_SYS_LOAD_ADDR		0x00800800
 #define CONFIG_SPL_STACK		0x00180000
 #define CONFIG_SPL_TEXT_BASE		0x00000000
-#define CONFIG_SPL_MAX_SIZE		0x100000
+#define CONFIG_SPL_MAX_SIZE		0x40000
 
 #define CONFIG_SYS_BOOTM_LEN		(64 << 20)	/*  64M */
 #define GICD_BASE			0xffc01000
 #define GICC_BASE			0xffc02000
 
 #define CONFIG_ROCKUSB_G_DNL_PID	0x320A
-
-#define CONFIG_SUPPORT_EMMC_RPMB
 
 /* MMC/SD IP block */
 #define CONFIG_BOUNCE_BUFFER
@@ -67,11 +65,7 @@
 
 #include <config_distro_bootcmd.h>
 
-/* Linux fails to load the fdt if it's loaded above 256M on a Rock 2 board, so
- * limit the fdt reallocation to that */
 #define CONFIG_EXTRA_ENV_SETTINGS \
-	"fdt_high=0x0fffffff\0" \
-	"initrd_high=0x0fffffff\0" \
 	"partitions=" PARTS_DEFAULT \
 	ENV_MEM_LAYOUT_SETTINGS \
 	ROCKCHIP_DEVICE_SETTINGS \

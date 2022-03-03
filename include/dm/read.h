@@ -56,6 +56,16 @@ static inline bool dev_of_valid(struct udevice *dev)
 int dev_read_u32_default(struct udevice *dev, const char *propname, int def);
 
 /**
+ * dev_read_s32_default() - read a signed 32-bit integer from a device's DT property
+ *
+ * @dev:	device to read DT property from
+ * @propname:	name of the property to read from
+ * @def:	default value to return if the property has no value
+ * @return property value, or @def if not found
+ */
+int dev_read_s32_default(struct udevice *dev, const char *propname, int def);
+
+/**
  * dev_read_string() - Read a string from a device's DT property
  *
  * @dev:	device to read DT property from
@@ -429,6 +439,18 @@ int dev_read_resource(struct udevice *dev, uint index, struct resource *res);
 int dev_read_resource_byname(struct udevice *dev, const char *name,
 			     struct resource *res);
 
+/**
+ * dev_translate_address() - Tranlate a device-tree address
+ *
+ * Translate an address from the device-tree into a CPU physical address.  This
+ * function walks up the tree and applies the various bus mappings along the
+ * way.
+ *
+ * @dev: device giving the context in which to translate the address
+ * @in_addr: pointer to the address to translate
+ * @return the translated address; OF_BAD_ADDR on error
+ */
+u64 dev_translate_address(struct udevice *dev, const fdt32_t *in_addr);
 #else /* CONFIG_DM_DEV_READ_INLINE is enabled */
 
 static inline int dev_read_u32_default(struct udevice *dev,
@@ -603,6 +625,11 @@ static inline int dev_read_resource_byname(struct udevice *dev,
 					   struct resource *res)
 {
 	return ofnode_read_resource_byname(dev_ofnode(dev), name, res);
+}
+
+static inline u64 dev_translate_address(struct udevice *dev, const fdt32_t *in_addr)
+{
+	return ofnode_translate_address(dev_ofnode(dev), in_addr);
 }
 
 #endif /* CONFIG_DM_DEV_READ_INLINE */

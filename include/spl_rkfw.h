@@ -9,7 +9,11 @@
 #include <spl.h>
 
 #define LOADER_HARD_STR			"LOADER"
+#ifdef CONFIG_SPL_ATF
 #define TBOOT_HEAD_TAG			0x58334c42 /* 'B', 'L', '3', 'X' */
+#else
+#define TBOOT_HEAD_TAG			"TOS   "
+#endif
 
 #define BL30_IMAGE_NAME			"bl30.bin" /* SCP Firmware BL3-0 */
 #define BL31_IMAGE_NAME			"bl31.bin" /* EL3 Runtime Firmware BL31 */
@@ -28,8 +32,13 @@
 /* Special value used to verify platform parameters from BL2 to BL3-1 */
 #define RK_BL31_PLAT_PARAM_VAL		0x0f1e2d3c4b5a6978ULL
 
+#ifdef CONFIG_MTD_NAND_CORE
+#define RKFW_RETRY_SECTOR_SIZE		256
+#define RKFW_RETRY_SECTOR_TIMES		32
+#else
 #define RKFW_RETRY_SECTOR_SIZE		1024
 #define RKFW_RETRY_SECTOR_TIMES		8
+#endif
 
 struct s_fip_name_id {
 	const char *name;
@@ -98,6 +107,5 @@ typedef struct tag_second_loader_hdr {
  * spl_load_rkfw_image - Load rockchip image(trust and U-Boot) and jump to bl31.
  */
 int spl_load_rkfw_image(struct spl_image_info *spl_image,
-			struct spl_load_info *info,
-			u32 trust_sector, u32 uboot_sector);
+			struct spl_load_info *info);
 #endif

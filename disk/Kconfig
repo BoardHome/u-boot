@@ -4,6 +4,10 @@ menu "Partition Types"
 config PARTITIONS
 	bool "Enable Partition Labels (disklabels) support"
 	default y
+	select SPL_SPRINTF if SPL
+	select TPL_SPRINTF if TPL
+	select SPL_STRTO if SPL
+	select TPL_STRTO if TPL
 	help
 	  Partition Labels (disklabels) Supported:
 	  Zero or more of the following:
@@ -137,6 +141,14 @@ config RKPARM_PARTITION
 	help
 	  Say Y here if you would like to use device under U-Boot which
 	  were partitioned using Rockchip parameter.
+
+config RKRAM_PARTITION
+	bool "Enable Rockchip ram partition table"
+	depends on PARTITIONS && DM_RAMDISK
+	depends on ROCKCHIP_PRELOADER_ATAGS
+	help
+	  Say Y here if you would like to use device under U-Boot which
+	  were partitioned using Rockchip atags.
 
 config SPL_ROCKCHIP_PARTITION
 	bool "Enable Rockchip partition table for SPL"

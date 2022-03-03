@@ -8,7 +8,6 @@
 #include <asm/io.h>
 #include <asm/psci.h>
 #include <asm/suspend.h>
-#include <linux/arm-smccc.h>
 #include <linux/io.h>
 
 #ifdef CONFIG_ARM64
@@ -59,6 +58,15 @@ int sip_smc_set_suspend_mode(unsigned long ctrl,
 	struct arm_smccc_res res;
 
 	res = __invoke_sip_fn_smc(SIP_SUSPEND_MODE, ctrl, config1, config2);
+	return res.a0;
+}
+
+int sip_smc_amp_cfg(unsigned long func, unsigned long arg0, unsigned long arg1,
+		    unsigned long arg2)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(SIP_AMP_CFG, func, arg0, arg1, arg2, 0, 0, 0, &res);
 	return res.a0;
 }
 

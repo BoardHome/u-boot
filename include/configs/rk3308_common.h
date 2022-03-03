@@ -19,7 +19,7 @@
 #define CONFIG_SYS_NAND_SIZE		(256 * 1024 * 1024)
 #define CONFIG_SPL_FRAMEWORK
 #define CONFIG_SPL_TEXT_BASE		0x00000000
-#define CONFIG_SPL_MAX_SIZE		0x20000
+#define CONFIG_SPL_MAX_SIZE		0x40000
 #define CONFIG_SPL_BSS_START_ADDR	0x00400000
 #define CONFIG_SPL_BSS_MAX_SIZE		0x2000
 #define CONFIG_SYS_SPI_U_BOOT_OFFS	0x8000
@@ -62,7 +62,7 @@
 	"scriptaddr=0x00500000\0" \
 	"pxefile_addr_r=0x00600000\0" \
 	"fdt_addr_r=0x01f00000\0" \
-	"kernel_addr_no_bl32_r=0x00280000\0" \
+	"kernel_addr_no_low_bl32_r=0x00280000\0" \
 	"kernel_addr_r=0x00680000\0" \
 	"kernel_addr_c=0x02480000\0" \
 	"ramdisk_addr_r=0x04000000\0"
