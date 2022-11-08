@@ -28,6 +28,8 @@
 #include <console.h>
 #include <sysmem.h>
 #include <adc.h>
+#include <dt-bindings/pinctrl/rockchip.h>
+#include <dt-bindings/gpio/gpio.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -1096,6 +1098,19 @@ static bool fdt_property_exist(char *path, char *property)
 	}
 }
 
+static bool fdt_set_gpios_property(u32 phandle, const char *property, int gpio, int val)
+{
+	char string[1024] = {0};
+
+	sprintf(string, "fdt set %s gpios <0x%08x 0x%08x 0x%08x>", property, phandle, gpio, val);
+	printf("%s\n", string);
+	if (!run_command(string, 0)) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 static void compatible_with_rk3399_bootup(void)
 {
 	/* compatible for ROC-RK3399-PC-PLUS and ROC-RK3399-PC-Pro */
@@ -1125,6 +1140,54 @@ static void compatible_with_rk3399_bootup(void)
 
 				run_command("fdt set /wireless-wlan status okay", 0);
 				run_command("fdt set /wireless-bluetooth status okay", 0);
+			}
+		} else if (strstr(store_value, "CS-R1-3399JD4-MAIN Board") != NULL) {
+			u32 adc_val, phandle;
+			int ret = 0;
+			ret = adc_channel_single_shot("saradc", 0, &adc_val);
+			if (ret)
+				return;
+			printf("saradc0 value = %d\n", adc_val);
+			if ((adc_val > 650)) {
+				/* V2.0 */
+				run_command("fdt set /i2c@ff150000 status okay", 0);
+				run_command("fdt set /i2c@ff150000/gpio@27 status okay", 0);
+				run_command("fdt set /pca9555-rst status okay", 0);
+
+				phandle = fdt_get_phandle(gd->fdt_blob,
+				             fdt_path_offset(gd->fdt_blob, "/i2c@ff150000/gpio@27"));
+				printf("pca9555 phandle value = %d\n", phandle);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN1",  PCA_IO0_0, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN2",  PCA_IO0_1, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN3",  PCA_IO0_2, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN4",  PCA_IO0_3, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN5",  PCA_IO0_4, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN6",  PCA_IO0_5, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN7",  PCA_IO1_0, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN8",  PCA_IO1_1, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN9",  PCA_IO1_2, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN10", PCA_IO1_3, GPIO_ACTIVE_LOW);
+			} else {
+				/* V1.3 */
+
+				phandle = fdt_get_phandle(gd->fdt_blob,
+				             fdt_path_offset(gd->fdt_blob, "/pinctrl/gpio2@ff780000"));
+				printf("gpio2 phandle value = %d\n", phandle);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN1",  RK_PA1, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN2",  RK_PD2, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN3",  RK_PB0, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN4",  RK_PA0, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN5",  RK_PC2, GPIO_ACTIVE_LOW);
+
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN7",  RK_PC3, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN9",  RK_PA7, GPIO_ACTIVE_LOW);
+
+				phandle = fdt_get_phandle(gd->fdt_blob,
+				             fdt_path_offset(gd->fdt_blob, "/pinctrl/gpio4@ff790000"));
+				printf("gpio4 phandle value = %d\n", phandle);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN6",  RK_PB1, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN8",  RK_PD0, GPIO_ACTIVE_LOW);
+				fdt_set_gpios_property(phandle, "/leds/RECOVER_IN10", RK_PB0, GPIO_ACTIVE_LOW);
 			}
 		}
 	}
