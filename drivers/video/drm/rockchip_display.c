@@ -1595,7 +1595,11 @@ redo:
 			}
 
 			for (int i = 0; i < 3; i++) {
-				printf("DTB Panel id [%d] = 0x%x\n", i, panel_plat->id->buf[i]);
+				if (!panel_plat->id) {
+					goto failed;
+				} else {
+					printf("DTB Panel id [%d] = 0x%x\n", i, panel_plat->id->buf[i]);
+				}
 			}
 			snprintf(env_str, ARRAY_SIZE(env_str), "0x%x%x%x",
 				panel_plat->id->buf[0], panel_plat->id->buf[1], panel_plat->id->buf[2]);
