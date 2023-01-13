@@ -200,7 +200,6 @@ struct blk_desc *rockchip_get_bootdev(void)
 	char *bootargs;
 	char boot_options[128] = {0};
 	const char *storage_node = NULL;
-	int ret;
 
 	if (dev_desc)
 		return dev_desc;
@@ -218,12 +217,14 @@ struct blk_desc *rockchip_get_bootdev(void)
 	if (storage_node != NULL) {
 		bootargs = env_get("bootargs");
 
-		// rk3328
-		ret = strcmp(storage_node, "rksdmmc@ff520000");
-		if (ret != 0)
-			snprintf(boot_options, sizeof(boot_options), "%s storagenode=%s ", bootargs, storage_node);
-		else
+		// rk3328-emmc
+		if (strcmp(storage_node, "rksdmmc@ff520000") == 0)
 			snprintf(boot_options, sizeof(boot_options), "%s storagenode=%s ", bootargs, "dwmmc@ff520000");
+		// rk3328-sd
+		else if (strcmp(storage_node, "rksdmmc@ff500000") == 0)
+			snprintf(boot_options, sizeof(boot_options), "%s storagenode=%s ", bootargs, "dwmmc@ff500000");
+		else
+			snprintf(boot_options, sizeof(boot_options), "%s storagenode=%s ", bootargs, storage_node);
 		env_update("bootargs", boot_options);
 	}
 
