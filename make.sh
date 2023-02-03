@@ -721,6 +721,10 @@ function pack_loader_image()
 
 	${RKTOOLS}/mkimage -n ${localChip} -T rksd -d ${RKBIN}/${flashData} idbloader.img
 	cat ${RKBIN}/${flashBoot} >> idbloader.img
+	xxd idbloader.img idbloader.dump
+	awk -F " " '/00000260:/ {$6="0100"} {$10="................"} {print}' idbloader.dump > new_idbloader.dump
+	xxd -r new_idbloader.dump > idbloader.img
+	rm *idbloader.dump -rf
 
 	numline=`cat ${ini} | wc -l`
 	if [ ${numline} -eq 1 ]; then
