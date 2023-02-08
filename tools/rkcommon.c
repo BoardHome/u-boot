@@ -226,6 +226,7 @@ bool rkcommon_need_rc4_spl(struct image_tool_params *params)
 static void rkcommon_set_header0(void *buf, struct image_tool_params *params)
 {
 	struct header0_info *hdr = buf;
+	unsigned int *u32_buf = buf;
 
 	memset(buf, '\0', RK_INIT_OFFSET * RK_BLK_SIZE);
 	hdr->signature = RK_SIGNATURE;
@@ -233,6 +234,7 @@ static void rkcommon_set_header0(void *buf, struct image_tool_params *params)
 	hdr->init_offset = RK_INIT_OFFSET;
 	hdr->init_size = spl_params.init_size / RK_BLK_SIZE;
 
+	u32_buf[128 + 104 / 4] = 0x01; /* just workaround rk3399 sdfwupdate */
 	/*
 	 * init_boot_size needs to be set, as it is read by the BootROM
 	 * to determine the size of the next-stage bootloader (e.g. U-Boot
