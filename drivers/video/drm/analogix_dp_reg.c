@@ -483,9 +483,16 @@ void analogix_dp_init_aux(struct analogix_dp_device *dp)
 int analogix_dp_detect(struct analogix_dp_device *dp)
 {
 	u32 reg;
+	u16 i, retry = 10;
 
-	if (dm_gpio_is_valid(&dp->hpd_gpio))
-		return dm_gpio_get_value(&dp->hpd_gpio);
+	if (dm_gpio_is_valid(&dp->hpd_gpio)){
+		for (i = 0; i < retry; i++){
+			if(dm_gpio_get_value(&dp->hpd_gpio))
+				return 1;
+			mdelay(10);
+		}
+		return 0;
+	}
 
 	if (dp->force_hpd)
 		analogix_dp_force_hpd(dp);
