@@ -426,9 +426,6 @@ static void compatible_with_rk356x_bootup(void)
 				// gmac1
 				run_command("fdt set /ethernet@fe010000 tx_delay <0x4f>", 0);
 				run_command("fdt set /ethernet@fe010000 rx_delay <0x26>", 0);
-				// 4g
-				run_command("fdt rm /vcc-4g-power-regulator", 0);
-				run_command("fdt rm /pinctrl/4g/vcc-4g-power-en", 0);
 			}
 		}
 	}
