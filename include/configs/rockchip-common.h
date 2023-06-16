@@ -180,7 +180,8 @@
 	"boot_android ${devtype} ${devnum};"	\
 	"boot_fit;"				\
 	"bootrkp;"				\
-	"run distro_bootcmd;"
+	"run distro_bootcmd;"			\
+	"if test ${devtype} = \"mtd\";then mtd erase nor0 0x0 0x1000;rockusb 0 mmc 0;fi"
 #endif
 
 #endif /* CONFIG_SPL_BUILD */
