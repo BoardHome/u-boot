@@ -640,6 +640,9 @@ struct analogix_dp_device {
 	u8 dpcd[DP_RECEIVER_CAP_SIZE];
 	bool video_bist_enable;
 	u32 lane_map[4];
+	struct {
+		unsigned int enable;
+	} delay;
 };
 
 /* analogix_dp_reg.c */

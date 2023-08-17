@@ -1042,6 +1042,11 @@ static int analogix_dp_probe(struct udevice *dev)
 		return ret;
 	}
 
+	dp->delay.enable = dev_read_u32_default(dev, "enable-delay-ms", 0);
+	if (dp->delay.enable > 0) {
+		mdelay(dp->delay.enable);
+	}
+
 	ret = gpio_request_by_name(dev, "hpd-gpios", 0, &dp->hpd_gpio,
 				   GPIOD_IS_IN);
 	if (ret && ret != -ENOENT) {
