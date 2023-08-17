@@ -1275,49 +1275,22 @@ struct rockchip_logo_cache *find_or_alloc_logo_cache(const char *bmp)
 	return logo_cache;
 }
 
-/* Note: used only for rkfb kernel driver */
-static int load_kernel_bmp_logo(struct logo_info *logo, const char *bmp_name)
-{
-#ifdef CONFIG_ROCKCHIP_RESOURCE_IMAGE
-	void *dst = NULL;
-	int len, size;
-	struct bmp_header *header;
+enum LOGO_SOURCE {
+    FROM_RESOURCE,
+    FROM_DISTRO,
+    FROM_INTERNEL
+};
 
-	if (!logo || !bmp_name)
-		return -EINVAL;
-
-	header = malloc(RK_BLK_SIZE);
-	if (!header)
-		return -ENOMEM;
-
-	len = rockchip_read_resource_file(header, bmp_name, 0, RK_BLK_SIZE);
-	if (len != RK_BLK_SIZE) {
-		free(header);
-		return -EINVAL;
-	}
-	size = get_unaligned_le32(&header->file_size);
-	dst = (void *)(memory_start + MEMORY_POOL_SIZE / 2);
-	len = rockchip_read_resource_file(dst, bmp_name, 0, size);
-	if (len != size) {
-		printf("failed to load bmp %s\n", bmp_name);
-		free(header);
-		return -ENOENT;
-	}
-
-	logo->mem = dst;
-#endif
-
-	return 0;
-}
-
-static int rockchip_read_distro_logo(void *logo_addr, int size)
+static int rockchip_read_distro_logo(void *logo_addr, int size, const char *bmp_name)
 {
 	const char *cmd = "part list ${devtype} ${devnum} -bootable devplist";
-	char *devnum, *devtype, *devplist;
+	char *devnum, *devtype, *devplist, *file_name = "logo.bmp";
 	char devnum_part[12];
 	char logo_hex_str[19];
 	char header_size_str[10];
 	char *fs_argv[6];
+
+	strcpy(file_name, bmp_name);
 
 	if (!rockchip_get_bootdev() || !logo_addr)
 		return -ENODEV;
@@ -1341,22 +1314,77 @@ static int rockchip_read_distro_logo(void *logo_addr, int size)
 	fs_argv[1] = devtype,
 	fs_argv[2] = devnum_part;
 	fs_argv[3] = logo_hex_str;
-	fs_argv[4] = "logo.bmp";
+	fs_argv[4] = file_name;
 	fs_argv[5] = header_size_str;
 
 	if (do_load(NULL, 0, 6, fs_argv, FS_TYPE_ANY))
 		return -EIO;
-
-	printf("logo(Distro): logo.bmp\n");
-
+	printf("logo(Distro): %s\n", file_name);
 	return 0;
 }
 
-enum LOGO_SOURCE {
-    FROM_RESOURCE,
-    FROM_DISTRO,
-    FROM_INTERNEL
-};
+/* Note: used only for rkfb kernel driver */
+static int load_kernel_bmp_logo(struct logo_info *logo, const char *bmp_name)
+{
+	void *dst = NULL;
+	int len, size, ret = 0;
+	struct bmp_header *header;
+	enum LOGO_SOURCE logo_source;
+
+	if (!logo || !bmp_name)
+		return -EINVAL;
+
+	header = malloc(RK_BLK_SIZE);
+	if (!header)
+		return -ENOMEM;
+
+#ifdef CONFIG_ROCKCHIP_RESOURCE_IMAGE
+	len = rockchip_read_resource_file(header, bmp_name, 0, RK_BLK_SIZE);
+    if (len == RK_BLK_SIZE) {
+        logo_source = FROM_RESOURCE;
+    }
+#endif
+    if (!rockchip_read_distro_logo(header, RK_BLK_SIZE, bmp_name)) {
+        logo_source = FROM_DISTRO;
+    } else {
+        free(header);
+        header = (struct bmp_header *)logo_bmp;
+        logo_source = FROM_INTERNEL;
+    }
+
+	size = get_unaligned_le32(&header->file_size);
+	dst = (void *)(memory_start + MEMORY_POOL_SIZE / 2);
+
+#ifdef CONFIG_ROCKCHIP_RESOURCE_IMAGE
+	if (logo_source == FROM_RESOURCE) {
+		len = rockchip_read_resource_file(dst, bmp_name, 0, size);
+		if (len != size) {
+			printf("failed to load bmp %s\n", bmp_name);
+			free(header);
+			return -ENOENT;
+		}
+	} else
+#endif
+	if (logo_source == FROM_DISTRO) {
+		ret = rockchip_read_distro_logo(dst, size, bmp_name);
+		if (ret) {
+			printf("failed to load bmp %s\n", bmp_name);
+			ret = -ENOENT;
+			goto free_header;
+		}
+	} else {
+		dst = (void*)logo_bmp;
+	}
+
+	logo->mem = dst;
+
+free_header:
+    if (logo_source != FROM_INTERNEL) {
+        free(header);
+    }
+
+	return 0;
+}
 
 static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
 {
@@ -1391,7 +1419,7 @@ static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
     }
     else
 #endif
-    if (!rockchip_read_distro_logo(header, RK_BLK_SIZE)) {
+    if (!rockchip_read_distro_logo(header, RK_BLK_SIZE, bmp_name)) {
         logo_source = FROM_DISTRO;
     } else {
         free(header);
@@ -1432,7 +1460,7 @@ static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
     } else
 #endif
     if (logo_source == FROM_DISTRO) {
-        ret = rockchip_read_distro_logo(pdst, size);
+        ret = rockchip_read_distro_logo(pdst, size, bmp_name);
         if (ret) {
             printf("failed to load logo.bmp\n");
             ret = -ENOENT;
