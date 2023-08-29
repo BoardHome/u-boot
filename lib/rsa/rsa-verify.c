@@ -589,7 +589,8 @@ int rsa_verify(struct image_sign_info *info,
 }
 
 #if !defined(USE_HOSTCC)
-#ifdef CONFIG_SPL_FIT_HW_CRYPTO
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_FIT_HW_CRYPTO) && \
+    defined(CONFIG_SPL_ROCKCHIP_SECURE_OTP)
 int rsa_burn_key_hash(struct image_sign_info *info)
 {
 	char *rsa_key;
@@ -598,7 +599,7 @@ int rsa_burn_key_hash(struct image_sign_info *info)
 	struct udevice *dev;
 	struct key_prop prop;
 	char name[100] = {0};
-	u16 secure_boot_enable = 0;
+	u16 secure_flags = 0;
 	const void *blob = info->fdt_blob;
 	uint8_t digest[FIT_MAX_HASH_LEN];
 	uint8_t digest_read[FIT_MAX_HASH_LEN];
@@ -609,11 +610,11 @@ int rsa_burn_key_hash(struct image_sign_info *info)
 		return -ENODEV;
 
 	ret = misc_otp_read(dev, OTP_SECURE_BOOT_ENABLE_ADDR,
-			    &secure_boot_enable, OTP_SECURE_BOOT_ENABLE_SIZE);
+			    &secure_flags, OTP_SECURE_BOOT_ENABLE_SIZE);
 	if (ret)
 		return ret;
 
-	if (secure_boot_enable)
+	if (secure_flags == 0xff)
 		return 0;
 
 	sig_node = fdt_subnode_offset(blob, 0, FIT_SIG_NODENAME);
@@ -700,9 +701,9 @@ int rsa_burn_key_hash(struct image_sign_info *info)
 		goto error;
 	}
 
-	secure_boot_enable = 0xff;
+	secure_flags = 0xff;
 	ret = misc_otp_write(dev, OTP_SECURE_BOOT_ENABLE_ADDR,
-			     &secure_boot_enable, OTP_SECURE_BOOT_ENABLE_SIZE);
+			     &secure_flags, OTP_SECURE_BOOT_ENABLE_SIZE);
 	if (ret)
 		goto error;
 

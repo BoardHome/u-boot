@@ -185,6 +185,7 @@ enum {
 
 enum {
 	RK805_ID = 0x8050,
+	RK806_ID = 0x8060,
 	RK808_ID = 0x0000,
 	RK809_ID = 0x8090,
 	RK816_ID = 0x8160,
@@ -205,6 +206,7 @@ enum {
 #define RK817_ID_LSB	0xee
 #define RK8XX_ID_MSK	0xfff0
 
+#define RK817_PMIC_CHRG_TERM	0xe6
 #define RK817_PMIC_SYS_CFG1	0xf1
 #define RK817_PMIC_SYS_CFG3	0xf4
 #define RK817_GPIO_INT_CFG	0xfe
@@ -278,12 +280,15 @@ struct rk8xx_reg_table {
 
 struct rk8xx_priv {
 	struct virq_chip *irq_chip;
+	struct spi_slave *slave;
 	int variant;
 	int irq;
 	int lp_off_time;
 	int lp_action;
 	uint8_t sleep_pin;
+	uint8_t rst_fun;
 	int not_save_power_en;
+	int sys_can_sd;
 };
 
 int rk8xx_spl_configure_buck(struct udevice *pmic, int buck, int uvolt);

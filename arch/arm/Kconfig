@@ -122,6 +122,9 @@ config ARM_ERRATA_852421
 config ARM_ERRATA_852423
 	bool
 
+config ARM_ZERO_CNTVOFF
+	bool
+
 config CPU_ARM720T
 	bool
 	select SYS_CACHE_SHIFT_5
@@ -1142,12 +1145,11 @@ config ARCH_ROCKCHIP
 	select SYS_MALLOC_F
 	select SYS_THUMB_BUILD if !ARM64
 	select SPL_SYS_MALLOC_SIMPLE if SPL
-	select DM_GPIO
+	imply DM_GPIO
 	select DM_SERIAL
 	select DM_SPI
 	select DM_SPI_FLASH
 	select DM_USB if USB
-	select CMD_ROCKUSB if USB_GADGET_DOWNLOAD
 	select ENABLE_ARM_SOC_BOOT0_HOOK
 	select SYS_NS16550
 	select SPI
@@ -1158,6 +1160,7 @@ config ARCH_ROCKCHIP
 	imply DM_PWM
 	imply DM_REGULATOR
 	imply CMD_FASTBOOT
+	imply CMD_ROCKUSB
 	imply FASTBOOT
 	imply FAT_WRITE
 	imply USB_FUNCTION_FASTBOOT

@@ -4,6 +4,7 @@
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
+#include <clk.h>
 #include <config.h>
 #include <common.h>
 #include <errno.h>
@@ -12,14 +13,32 @@
 #include <linux/list.h>
 #include <dm/device.h>
 #include <dm.h>
+#include <dm/device-internal.h>
+#include <dm/lists.h>
 
 #include "rockchip_display.h"
 #include "rockchip_crtc.h"
 #include "rockchip_connector.h"
 
+static const struct udevice_id rockchip_vp_ids[] = {
+	{ .compatible = "rockchip-vp" },
+	{ }
+};
+
+U_BOOT_DRIVER(rockchip_vp) = {
+	.name		= "rockchip-vp",
+	.id		= UCLASS_VIDEO_CRTC,
+	.of_match	= rockchip_vp_ids,
+};
+
 static const struct rockchip_crtc rk3036_vop_data = {
 	.funcs = &rockchip_vop_funcs,
 	.data = &rk3036_vop,
+};
+
+static const struct rockchip_crtc rv1106_vop_data = {
+	.funcs = &rockchip_vop_funcs,
+	.data = &rv1106_vop,
 };
 
 static const struct rockchip_crtc rv1108_vop_data = {
@@ -92,9 +111,24 @@ static const struct rockchip_crtc rk3328_vop_data = {
 	.data = &rk3328_vop,
 };
 
+static const struct rockchip_crtc rk3528_vop_data = {
+	.funcs = &rockchip_vop2_funcs,
+	.data = &rk3528_vop,
+};
+
+static const struct rockchip_crtc rk3562_vop_data = {
+	.funcs = &rockchip_vop2_funcs,
+	.data = &rk3562_vop,
+};
+
 static const struct rockchip_crtc rk3568_vop_data = {
 	.funcs = &rockchip_vop2_funcs,
 	.data = &rk3568_vop,
+};
+
+static const struct rockchip_crtc rk3588_vop_data = {
+	.funcs = &rockchip_vop2_funcs,
+	.data = &rk3588_vop,
 };
 
 static const struct udevice_id rockchip_vop_ids[] = {
@@ -104,6 +138,9 @@ static const struct udevice_id rockchip_vop_ids[] = {
 	}, {
 		.compatible = "rockchip,rv1108-vop",
 		.data = (ulong)&rv1108_vop_data,
+	}, {
+		.compatible = "rockchip,rv1106-vop",
+		.data = (ulong)&rv1106_vop_data,
 	}, {
 		.compatible = "rockchip,rv1126-vop",
 		.data = (ulong)&rv1126_vop_data,
@@ -147,18 +184,60 @@ static const struct udevice_id rockchip_vop_ids[] = {
 		.compatible = "rockchip,rk3328-vop",
 		.data = (ulong)&rk3328_vop_data,
 	}, {
+		.compatible = "rockchip,rk3528-vop",
+		.data = (ulong)&rk3528_vop_data,
+	}, {
+		.compatible = "rockchip,rk3562-vop",
+		.data = (ulong)&rk3562_vop_data,
+	}, {
 		.compatible = "rockchip,rk3568-vop",
 		.data = (ulong)&rk3568_vop_data,
+	}, {
+		.compatible = "rockchip,rk3588-vop",
+		.data = (ulong)&rk3588_vop_data,
 	}, { }
 };
 
 static int rockchip_vop_probe(struct udevice *dev)
 {
+	struct udevice *child;
+	int ret;
+
+	for (device_find_first_child(dev, &child);
+	     child;
+	     device_find_next_child(&child)) {
+		ret = device_probe(child);
+		if (ret)
+			return ret;
+
+		ret = clk_set_defaults(child);
+		if (ret)
+			return ret;
+	}
+
 	return 0;
 }
 
 static int rockchip_vop_bind(struct udevice *dev)
 {
+	ofnode ports, node;
+	int ret;
+
+	ports = dev_read_subnode(dev, "ports");
+	if (!ofnode_valid(ports))
+		return 0;
+
+	ofnode_for_each_subnode(node, ports) {
+		const char *name = ofnode_get_name(node);
+
+		ret = device_bind_driver_to_node(dev, "rockchip-vp", name,
+						 node, NULL);
+		if (ret) {
+			dev_err(dev, "unable to bind vp device node: %d\n", ret);
+			return ret;
+		}
+	}
+
 	return 0;
 }
 

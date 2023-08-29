@@ -18,8 +18,41 @@
 #include <asm-generic/gpio.h>
 #include <asm/arch-rockchip/clock.h>
 #include <linux/iopoll.h>
+#include <linux/ioport.h>
 
 DECLARE_GLOBAL_DATA_PTR;
+
+#define RK_PCIE_DBG			0
+
+#define __pcie_dev_print_emit(fmt, ...) \
+({ \
+	printf(fmt, ##__VA_ARGS__); \
+})
+
+#ifdef dev_err
+#undef dev_err
+#define dev_err(dev, fmt, ...) \
+({ \
+	if (dev) \
+		__pcie_dev_print_emit("%s: " fmt, dev->name, \
+				##__VA_ARGS__); \
+})
+#endif
+
+#ifdef dev_info
+#undef dev_info
+#define dev_info dev_err
+#endif
+
+#ifdef DEBUG
+#define dev_dbg dev_err
+#else
+#define dev_dbg(dev, fmt, ...)					\
+({								\
+	if (0)							\
+		__dev_printk(7, dev, fmt, ##__VA_ARGS__);	\
+})
+#endif
 
 struct rk_pcie {
 	struct udevice	*dev;
@@ -36,6 +69,7 @@ struct rk_pcie {
 	struct pci_region	io;
 	struct pci_region	mem;
 	bool		is_bifurcation;
+	u32 gen;
 };
 
 enum {
@@ -61,7 +95,6 @@ enum {
 #define PCIE_CLIENT_DBG_FIFO_STATUS	0x350
 #define PCIE_CLIENT_DBG_TRANSITION_DATA	0xffff0000
 #define PCIE_CLIENT_DBF_EN		0xffff0003
-#define RK_PCIE_DBG			0
 
 /* PCI DBICS registers */
 #define PCIE_LINK_STATUS_REG		0x80
@@ -164,7 +197,7 @@ static u32 __rk_pcie_read_apb(struct rk_pcie *rk_pcie, void __iomem *base,
 
 	ret = rk_pcie_read(base + reg, size, &val);
 	if (ret)
-		dev_err(rk_pcie->pci->dev, "Read APB address failed\n");
+		dev_err(rk_pcie->dev, "Read APB address failed\n");
 
 	return val;
 }
@@ -176,7 +209,7 @@ static void __rk_pcie_write_apb(struct rk_pcie *rk_pcie, void __iomem *base,
 
 	ret = rk_pcie_write(base + reg, size, val);
 	if (ret)
-		dev_err(rk_pcie->pci->dev, "Write APB address failed\n");
+		dev_err(rk_pcie->dev, "Write APB address failed\n");
 }
 
 static inline u32 rk_pcie_readl_apb(struct rk_pcie *rk_pcie, u32 reg)
@@ -468,10 +501,10 @@ static void rk_pcie_debug_dump(struct rk_pcie *rk_pcie)
 #if RK_PCIE_DBG
 	u32 loop;
 
-	dev_info(rk_pcie->dev, "ltssm = 0x%x\n",
+	dev_err(rk_pcie->dev, "ltssm = 0x%x\n",
 		 rk_pcie_readl_apb(rk_pcie, PCIE_CLIENT_LTSSM_STATUS));
 	for (loop = 0; loop < 64; loop++)
-		dev_info(rk_pcie->dev, "fifo_status = 0x%x\n",
+		dev_err(rk_pcie->dev, "fifo_status = 0x%x\n",
 			 rk_pcie_readl_apb(rk_pcie, PCIE_CLIENT_DBG_FIFO_STATUS));
 #endif
 }
@@ -516,8 +549,20 @@ static int rk_pcie_link_up(struct rk_pcie *priv, u32 cap_speed)
 	rk_pcie_configure(priv, cap_speed);
 
 	/* Release the device */
-	if (dm_gpio_is_valid(&priv->rst_gpio))
+	if (dm_gpio_is_valid(&priv->rst_gpio)) {
+		/*
+		 * T_PVPERL (Power stable to PERST# inactive) should be a minimum of 100ms.
+		 * We add a 200ms by default for sake of hoping everthings
+		 * work fine.
+		 */
+		msleep(200);
 		dm_gpio_set_value(&priv->rst_gpio, 1);
+		/*
+		 * Add this 20ms delay because we observe link is always up stably after it and
+		 * could help us save 20ms for scanning devices.
+		 */
+		msleep(20);
+	}
 
 	rk_pcie_disable_ltssm(priv);
 	rk_pcie_link_status_clear(priv);
@@ -607,7 +652,7 @@ static int rockchip_pcie_init_port(struct udevice *dev)
 	rk_pcie_writel_apb(priv, 0x0, 0xf00040);
 	rk_pcie_setup_host(priv);
 
-	ret = rk_pcie_link_up(priv, LINK_SPEED_GEN_3);
+	ret = rk_pcie_link_up(priv, priv->gen);
 	if (ret < 0)
 		goto err_link_up;
 
@@ -626,18 +671,20 @@ err_exit_phy:
 static int rockchip_pcie_parse_dt(struct udevice *dev)
 {
 	struct rk_pcie *priv = dev_get_priv(dev);
+	u32 max_link_speed;
 	int ret;
+	struct resource res;
 
-	priv->dbi_base = (void *)dev_read_addr_index(dev, 0);
-	if (!priv->dbi_base)
+	ret = dev_read_resource_byname(dev, "pcie-dbi", &res);
+	if (ret)
 		return -ENODEV;
-
+	priv->dbi_base = (void *)(res.start);
 	dev_dbg(dev, "DBI address is 0x%p\n", priv->dbi_base);
 
-	priv->apb_base = (void *)dev_read_addr_index(dev, 1);
-	if (!priv->apb_base)
+	ret = dev_read_resource_byname(dev, "pcie-apb", &res);
+	if (ret)
 		return -ENODEV;
-
+	priv->apb_base = (void *)(res.start);
 	dev_dbg(dev, "APB address is 0x%p\n", priv->apb_base);
 
 	ret = gpio_request_by_name(dev, "reset-gpios", 0,
@@ -674,6 +721,12 @@ static int rockchip_pcie_parse_dt(struct udevice *dev)
 
 	if (dev_read_bool(dev, "rockchip,bifurcation"))
 		priv->is_bifurcation = true;
+
+	ret = ofnode_read_u32(dev->node, "max-link-speed", &max_link_speed);
+	if (ret < 0 || max_link_speed > 4)
+		priv->gen = 0;
+	else
+		priv->gen = max_link_speed;
 
 	return 0;
 }
@@ -751,7 +804,10 @@ static const struct dm_pci_ops rockchip_pcie_ops = {
 };
 
 static const struct udevice_id rockchip_pcie_ids[] = {
+	{ .compatible = "rockchip,rk3528-pcie" },
+	{ .compatible = "rockchip,rk3562-pcie" },
 	{ .compatible = "rockchip,rk3568-pcie" },
+	{ .compatible = "rockchip,rk3588-pcie" },
 	{ }
 };
 

@@ -101,12 +101,6 @@ struct resource_entry {
 };
 
 LIST_HEAD(entrys_head);
-LIST_HEAD(entrys_dtbs_head);
-
-__weak int board_resource_dtb_accepted(char *dtb_name)
-{
-	return 1;
-}
 
 int resource_image_check_header(void *rsce_hdr)
 {
@@ -155,8 +149,6 @@ static int add_file_to_list(struct resource_entry *entry, int rsce_base, bool ra
 	file->ram = ram;
 	memcpy(file->hash, entry->hash, entry->hash_size);
 	list_add_tail(&file->link, &entrys_head);
-	if (strstr(file->name, DTB_SUFFIX) && board_resource_dtb_accepted(file->name))
-		list_add_tail(&file->dtbs, &entrys_dtbs_head);
 	debug("ENTRY: addr: %p, name: %18s, base: 0x%08x, offset: 0x%08x, size: 0x%08x\n",
 	      entry, file->name, file->rsce_base, file->f_offset, file->f_size);
 
@@ -213,7 +205,6 @@ int resource_create_ram_list(struct blk_desc *dev_desc, void *rsce_hdr)
 	}
 
 	list_del_init(&entrys_head);
-	list_del_init(&entrys_dtbs_head);
 	data = (void *)((ulong)hdr + hdr->c_offset * dev_desc->blksz);
 	for (e_num = 0; e_num < hdr->e_nums; e_num++) {
 		size = e_num * hdr->e_blks * dev_desc->blksz;
@@ -308,8 +299,11 @@ static int read_dtb_from_android(struct blk_desc *dev_desc,
 		dtb_offset += ALIGN(hdr->recovery_dtbo_size, hdr->page_size) +
 			      ALIGN(hdr->second_size, hdr->page_size);
 		dtb_size = hdr->dtb_size;
-	} else if (hdr->header_version == 3) {
-		dtb_offset += ALIGN(VENDOR_BOOT_HDR_SIZE,
+	} else if (hdr->header_version >= 3) {
+		ulong vendor_boot_hdr_size = (hdr->header_version == 3) ?
+			VENDOR_BOOT_HDRv3_SIZE : VENDOR_BOOT_HDRv4_SIZE;
+
+		dtb_offset += ALIGN(vendor_boot_hdr_size,
 				    hdr->vendor_page_size) +
 			      ALIGN(hdr->vendor_ramdisk_size,
 				    hdr->vendor_page_size);
@@ -320,18 +314,13 @@ static int read_dtb_from_android(struct blk_desc *dev_desc,
 		return 0;
 
 	/*
-	 * boot_img_hdr_v2,3 feature.
+	 * boot_img_hdr_v234 feature.
 	 *
 	 * If dtb position is present, replace the old with new one if
 	 * we don't need to verify DTB hash from resource.img file entry.
 	 */
 	dtb_offset = DIV_ROUND_UP(dtb_offset, dev_desc->blksz);
-#ifndef CONFIG_ROCKCHIP_DTB_VERIFY
-	if (replace_resource_entry(DEFAULT_DTB_FILE, rsce_base, dtb_offset, dtb_size))
-		printf("Failed to load dtb from v2 dtb position\n");
-	else
-#endif
-		env_update("bootargs", "androidboot.dtb_idx=0");
+	env_update("bootargs", "androidboot.dtb_idx=0");
 
 	return 0;
 }
@@ -515,37 +504,6 @@ int rockchip_read_resource_file(void *buf, const char *name, int offset, int len
 	return ret;
 }
 
-static struct resource_file *get_default_dtb(void)
-{
-	struct resource_file *target_file = NULL;
-	struct resource_file *file;
-	struct list_head *node;
-	int num = 0;
-
-	if (list_empty(&entrys_head)) {
-		if (resource_init_list())
-			return NULL;
-	}
-
-	list_for_each(node, &entrys_dtbs_head) {
-		num++;
-		file = list_entry(node, struct resource_file, dtbs);
-		if (strcmp(file->name, DEFAULT_DTB_FILE))
-			target_file = file;
-	}
-
-	/*
-	 * two possible case:
-	 *	case 1. rk-kernel.dtb only
-	 *	case 2. targe_file(s) + rk-kernel.dtb(maybe they are the same),
-	 *		use (last)target_file as result one.
-	 */
-	if (num > 2)
-		printf("Error: find duplicate(%d) dtbs\n", num);
-
-	return target_file ? : get_file_info(DEFAULT_DTB_FILE);
-}
-
 int rockchip_read_resource_dtb(void *fdt_addr, char **hash, int *hash_size)
 {
 	struct resource_file *file = NULL;
@@ -556,7 +514,7 @@ int rockchip_read_resource_dtb(void *fdt_addr, char **hash, int *hash_size)
 #endif
 	/* If no dtb matches hardware id(GPIO/ADC), use the default */
 	if (!file)
-		file = get_default_dtb();
+		file = get_file_info(DEFAULT_DTB_FILE);
 
 	if (!file)
 		return -ENODEV;
@@ -573,62 +531,6 @@ int rockchip_read_resource_dtb(void *fdt_addr, char **hash, int *hash_size)
 	printf("DTB: %s\n", file->name);
 
 	return 0;
-}
-
-int resource_populate_dtb(void *img, void *fdt)
-{
-	struct blk_desc *dev_desc;
-	int format;
-	int ret;
-
-	format = (genimg_get_format(img));
-#ifdef CONFIG_ANDROID_BOOT_IMAGE
-	if (format == IMAGE_FORMAT_ANDROID) {
-		struct andr_img_hdr *hdr = img;
-		ulong offset;
-
-		dev_desc = rockchip_get_bootdev();
-		if (!dev_desc)
-			return -ENODEV;
-
-		offset = hdr->page_size + ALIGN(hdr->kernel_size, hdr->page_size) +
-			ALIGN(hdr->ramdisk_size, hdr->page_size);
-		ret = resource_create_ram_list(dev_desc, (void *)hdr + offset);
-		if (ret)
-			return ret;
-
-		return rockchip_read_dtb_file((void *)fdt);
-	}
-#endif
-#if IMAGE_ENABLE_FIT
-	if (format == IMAGE_FORMAT_FIT) {
-		const void *data;
-		size_t size;
-		int noffset;
-
-		noffset = fdt_path_offset(img, "/images/resource");
-		if (noffset < 0)
-			return noffset;
-
-		ret = fit_image_get_data(img, noffset, &data, &size);
-		if (ret < 0)
-			return ret;
-
-		dev_desc = rockchip_get_bootdev();
-		if (!dev_desc)
-			return -ENODEV;
-
-		ret = resource_create_ram_list(dev_desc, (void *)data);
-		if (ret) {
-			printf("resource_create_ram_list fail, ret=%d\n", ret);
-			return ret;
-		}
-
-		return rockchip_read_dtb_file((void *)fdt);
-	}
-#endif
-
-	return -EINVAL;
 }
 
 int resource_traverse_init_list(void)
@@ -662,14 +564,6 @@ static int do_dump_resource(cmd_tbl_t *cmdtp, int flag,
 		       file->name, file->rsce_base + file->f_offset, file->f_size);
 	}
 
-#ifdef CONFIG_ROCKCHIP_HWID_DTB
-	printf("DTBs:\n");
-	list_for_each(node, &entrys_dtbs_head) {
-		file = list_entry(node, struct resource_file, dtbs);
-		printf("	%s: 0x%08x(sector),0x%08x(bytes)\n",
-		       file->name, file->rsce_base + file->f_offset, file->f_size);
-	}
-#endif
 	return 0;
 }
 

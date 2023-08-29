@@ -246,7 +246,7 @@ static int rockchip_rk3568_otp_read(struct udevice *dev, int offset, void *buf,
 	if (!buffer)
 		return -ENOMEM;
 
-	ret = rockchip_otp_ecc_enable(otp, false);
+	ret = rockchip_otp_ecc_enable(otp, true);
 	if (ret < 0) {
 		printf("%s rockchip_otp_ecc_enable err\n", __func__);
 		return ret;
@@ -274,6 +274,57 @@ static int rockchip_rk3568_otp_read(struct udevice *dev, int offset, void *buf,
 read_end:
 	writel(0x0 | OTPC_USE_USER_MASK, otp->base + OTPC_USER_CTRL);
 
+	kfree(buffer);
+
+	return ret;
+}
+
+static int rockchip_rk3588_otp_read(struct udevice *dev, int offset, void *buf,
+				    int size)
+{
+	struct rockchip_otp_platdata *otp = dev_get_platdata(dev);
+	unsigned int addr_start, addr_end, addr_offset, addr_len;
+	int ret = 0, i = 0;
+	u32 out_value, st = 0;
+	u8 *buffer;
+
+	if (offset > RK3588_MAX_BYTES - 1)
+		return -ENOMEM;
+	if (offset + size > RK3588_MAX_BYTES)
+		size = RK3588_MAX_BYTES - offset;
+
+	addr_start = rounddown(offset, RK3588_NBYTES) / RK3588_NBYTES;
+	addr_end = roundup(offset + size, RK3588_NBYTES) / RK3588_NBYTES;
+	addr_offset = offset % RK3588_NBYTES;
+	addr_len = addr_end - addr_start;
+	addr_start += RK3588_NO_SECURE_OFFSET;
+
+	buffer = calloc(1, sizeof(*buffer) * addr_len * RK3588_NBYTES);
+	if (!buffer)
+		return -ENOMEM;
+
+	while (addr_len--) {
+		writel((addr_start << RK3588_ADDR_SHIFT) |
+		       (RK3588_BURST_NUM << RK3588_BURST_SHIFT),
+		       otp->base + RK3588_OTPC_AUTO_CTRL);
+		writel(RK3588_AUTO_EN, otp->base + RK3588_OTPC_AUTO_EN);
+		ret = readl_poll_timeout(otp->base + RK3588_OTPC_INT_ST, st,
+					 st & RK3588_RD_DONE, OTPC_TIMEOUT);
+		if (ret < 0) {
+			printf("%s timeout during read setup\n", __func__);
+			goto read_end;
+		}
+		writel(RK3588_RD_DONE, otp->base + RK3588_OTPC_INT_ST);
+
+		out_value = readl(otp->base + RK3588_OTPC_DOUT0);
+		memcpy(&buffer[i], &out_value, RK3588_NBYTES);
+		i += RK3588_NBYTES;
+		addr_start++;
+	}
+
+	memcpy(buf, buffer + addr_offset, size);
+
+read_end:
 	kfree(buffer);
 
 	return ret;
@@ -337,7 +388,7 @@ static int rockchip_otp_read(struct udevice *dev, int offset,
 	if (!data)
 		return -ENOSYS;
 
-	if (soc_is_rk3308bs())
+	if (soc_is_rk3308bs() || soc_is_px30s())
 		return rockchip_rk3308bs_otp_read(dev, offset, buf, size);
 
 	return data->read(dev, offset, buf, size);
@@ -382,6 +433,10 @@ static const struct otp_data rk3568_data = {
 	.read = rockchip_rk3568_otp_read,
 };
 
+static const struct otp_data rk3588_data = {
+	.read = rockchip_rk3588_otp_read,
+};
+
 static const struct otp_data rv1126_data = {
 	.init = rockchip_rv1126_otp_init,
 	.read = rockchip_rv1126_otp_read,
@@ -393,6 +448,10 @@ static const struct udevice_id rockchip_otp_ids[] = {
 		.data = (ulong)&px30_data,
 	},
 	{
+		.compatible = "rockchip,px30s-otp",
+		.data = (ulong)&rk3308bs_data,
+	},
+	{
 		.compatible = "rockchip,rk3308-otp",
 		.data = (ulong)&px30_data,
 	},
@@ -401,7 +460,23 @@ static const struct udevice_id rockchip_otp_ids[] = {
 		.data = (ulong)&rk3308bs_data,
 	},
 	{
+		.compatible = "rockchip,rk3528-otp",
+		.data = (ulong)&rk3568_data,
+	},
+	{
+		.compatible = "rockchip,rk3562-otp",
+		.data = (ulong)&rk3568_data,
+	},
+	{
 		.compatible = "rockchip,rk3568-otp",
+		.data = (ulong)&rk3568_data,
+	},
+	{
+		.compatible = "rockchip,rk3588-otp",
+		.data = (ulong)&rk3588_data,
+	},
+	{
+		.compatible = "rockchip,rv1106-otp",
 		.data = (ulong)&rk3568_data,
 	},
 	{

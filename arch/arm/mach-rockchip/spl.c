@@ -23,6 +23,7 @@
 #include <asm/arch/boot_mode.h>
 #include <asm/arch-rockchip/sys_proto.h>
 #include <asm/io.h>
+#include <asm/arch/param.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -216,11 +217,16 @@ int board_init_f_boot_flags(void)
 {
 	int boot_flags = 0;
 
+#ifdef CONFIG_FPGA_ROCKCHIP
+	arch_fpga_init();
+#endif
+#ifdef CONFIG_PSTORE
+	param_parse_pstore();
+#endif
 	/* pre-loader serial */
 #if defined(CONFIG_ROCKCHIP_PRELOADER_SERIAL) && \
     defined(CONFIG_ROCKCHIP_PRELOADER_ATAGS)
 	struct tag *t;
-
 
 	t = atags_get_tag(ATAG_SERIAL);
 	if (t) {
@@ -362,7 +368,10 @@ void spl_next_stage(struct spl_image_info *spl)
 		spl->next_stage = SPL_NEXT_STAGE_KERNEL;
 		break;
 	default:
-		spl->next_stage = SPL_NEXT_STAGE_UBOOT;
+		if ((reg_boot_mode & REBOOT_FLAG) != REBOOT_FLAG)
+			spl->next_stage = SPL_NEXT_STAGE_KERNEL;
+		else
+			spl->next_stage = SPL_NEXT_STAGE_UBOOT;
 	}
 }
 #endif
@@ -422,7 +431,7 @@ int fit_read_otp_rollback_index(uint32_t fit_index, uint32_t *otp_index)
 	int ret = 0;
 
 	*otp_index = 0;
-#if defined(CONFIG_SPL_ROCKCHIP_SECURE_OTP_V2) || defined(CONFIG_SPL_ROCKCHIP_SECURE_OTP_V1)
+#if defined(CONFIG_SPL_ROCKCHIP_SECURE_OTP)
 	struct udevice *dev;
 	u32 index, i, otp_version;
 	u32 bit_count;
@@ -451,7 +460,7 @@ int fit_read_otp_rollback_index(uint32_t fit_index, uint32_t *otp_index)
 
 static int fit_write_otp_rollback_index(u32 fit_index)
 {
-#if defined(CONFIG_SPL_ROCKCHIP_SECURE_OTP_V2) || defined(CONFIG_SPL_ROCKCHIP_SECURE_OTP_V1)
+#if defined(CONFIG_SPL_ROCKCHIP_SECURE_OTP)
 	struct udevice *dev;
 	u32 index, i, otp_index;
 

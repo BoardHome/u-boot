@@ -101,8 +101,9 @@ static void atags_print_tag(struct tag *t)
 		printf("   version = 0x%x\n", t->u.ddr_mem.version);
 		for (i = 0; i < ARRAY_SIZE(t->u.ddr_mem.bank); i++)
 			printf("  bank[%d] = 0x%llx\n", i, t->u.ddr_mem.bank[i]);
-		for (i = 0; i < ARRAY_SIZE(t->u.ddr_mem.reserved); i++)
-			printf("    res[%d] = 0x%x\n", i, t->u.ddr_mem.reserved[i]);
+		printf("     flags = 0x%x\n", t->u.ddr_mem.flags);
+		for (i = 0; i < ARRAY_SIZE(t->u.ddr_mem.data); i++)
+			printf("  data[%d] = 0x%x\n", i, t->u.ddr_mem.data[i]);
 		printf("      hash = 0x%x\n", t->u.ddr_mem.hash);
 		break;
 	case ATAG_RAM_PARTITION:
@@ -152,6 +153,17 @@ static void atags_print_tag(struct tag *t)
 			printf("    res[%d] = 0x%x\n", i, t->u.soc.reserved[i]);
 		printf("      hash = 0x%x\n", t->u.soc.hash);
 		break;
+	case ATAG_BOOT1_PARAM:
+		printf("[boot1 param]:\n");
+		printf("     magic = 0x%x\n", t->hdr.magic);
+		printf("      size = 0x%x\n\n", t->hdr.size << 2);
+		printf("   version = 0x%x\n", t->u.boot1p.version);
+		for (i = 0; i < ARRAY_SIZE(t->u.boot1p.param); i++)
+			printf("  param[%d] = 0x%x\n", i, t->u.boot1p.param[i]);
+		for (i = 0; i < ARRAY_SIZE(t->u.boot1p.reserved); i++)
+			printf("    res[%d] = 0x%x\n", i, t->u.boot1p.reserved[i]);
+		printf("      hash = 0x%x\n", t->u.boot1p.hash);
+		break;
 	case ATAG_CORE:
 		printf("[core]:\n");
 		printf("     magic = 0x%x\n", t->hdr.magic);
@@ -159,6 +171,13 @@ static void atags_print_tag(struct tag *t)
 		printf("     flags = 0x%x\n", t->u.core.flags);
 		printf("  pagesize = 0x%x\n", t->u.core.pagesize);
 		printf("   rootdev = 0x%x\n", t->u.core.rootdev);
+		break;
+	case ATAG_PSTORE:
+		printf("[pstore]:\n");
+		printf("     magic = 0x%x\n", t->hdr.magic);
+		printf("      size = 0x%x\n\n", t->hdr.size << 2);
+		for (i = 0; i < ARRAY_SIZE(t->u.pstore.buf); i++)
+			printf("  table[%d] = 0x%x@0x%x\n", i, t->u.pstore.buf[i].size, t->u.pstore.buf[i].addr);
 		break;
 	default:
 		printf("%s: magic(%x) is not support\n", __func__, t->hdr.magic);
