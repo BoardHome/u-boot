@@ -35,7 +35,6 @@
 #include <dm/of_access.h>
 #include <dm/ofnode.h>
 #include <asm/io.h>
-#include "logo.h"
 #include <boot_rkimg.h>
 #include <fs.h>
 
@@ -1189,15 +1188,13 @@ static int rockchip_read_distro_logo(void *logo_addr, const char *bmp_name, int 
 enum LOGO_SOURCE {
     FROM_RESOURCE,
     FROM_DISTRO,
-    FROM_INTERNEL
+	NO_LOGO
 };
 
 static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
 {
 	struct rockchip_logo_cache *logo_cache;
 	struct bmp_header *header;
-	struct bmp_header *logo_bmp = NULL;
-	unsigned long lenp = ~0UL;
 	void *dst = NULL, *pdst;
 	int size, len;
 	int ret = 0;
@@ -1230,26 +1227,8 @@ static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
     if (!rockchip_read_distro_logo(header, bmp_name, RK_BLK_SIZE)) {
         logo_source = FROM_DISTRO;
     } else {
-        free(header);
-		logo_bmp = malloc(LOGO_MAX_SIZE);
-		if (!logo_bmp)
-			return -ENOMEM;
-
-		if (gunzip(logo_bmp, LOGO_MAX_SIZE,
-			(uchar *) logo_bmp_gzip,
-			   &lenp) != 0) {
-			printf("Error: error uncompressed logo_bmp !\n");
-			free(logo_bmp);
-			return 1;
-		}
-		else {
-			printf("logo_bmp uncompressed size=%ld\n", lenp);
-			//logo_bmp = (struct bmp_header *)(logo_bmp);
-		}
-
-        header = (struct bmp_header *)logo_bmp;
-        logo_source = FROM_INTERNEL;
-    }
+		logo_source = NO_LOGO;
+	}
 
 	logo->bpp = get_unaligned_le16(&header->bit_count);
 	logo->width = get_unaligned_le32(&header->width);
@@ -1289,8 +1268,6 @@ static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
 			ret = -ENOENT;
 			goto free_header;
 		}
-	} else {
-		pdst = (void*)logo_bmp;
 	}
 
 	if (!can_direct_logo(logo->bpp)) {
@@ -1327,9 +1304,7 @@ static int load_bmp_logo(struct logo_info *logo, const char *bmp_name)
 
 free_header:
 
-	if (logo_source != FROM_INTERNEL) {
-		free(header);
-	}
+	free(header);
 
 	return ret;
 }
