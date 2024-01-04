@@ -1282,7 +1282,7 @@ char *board_fdt_chosen_bootargs(void *fdt)
 		 * high priority system to boot and add its UUID
 		 * to cmdline. The format is "roo=PARTUUID=xxxx...".
 		 */
-#ifdef CONFIG_ANDROID_AB
+#if defined(CONFIG_ANDROID_AB) && !defined(CONFIG_AB_OVERYLAYFS)
 		env_update_filter("bootargs", bootargs, "root=");
 #else
 		env_update("bootargs", bootargs);

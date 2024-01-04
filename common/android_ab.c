@@ -470,12 +470,14 @@ void ab_update_root_partition(void)
 		return;
 
 	/* Judge the partition device type. */
+	printf("part_name = %s\n",(char *)part_info.name);
 	switch (dev_desc->if_type) {
 	case IF_TYPE_MMC:
 		if (strstr(part_type, "ENV"))
 			snprintf(root_part_dev, 64, "root=/dev/mmcblk0p%d", part_num);
-		else if (strstr(part_type, "EFI"))
+		else if (strstr(part_type, "EFI")){
 			ab_update_root_uuid();
+		}
 		break;
 	case IF_TYPE_SPINAND:
 		if (strstr(part_type, "ENV"))

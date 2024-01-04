@@ -15,6 +15,7 @@
 #include <linux/list.h>
 #include <fs.h>
 #include <asm/io.h>
+#include <android_ab.h>
 
 #include "menu.h"
 #include "cli.h"
@@ -1713,6 +1714,18 @@ static int do_sysboot(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		printf("Error parsing config file\n");
 		return 1;
 	}
+
+#ifdef CONFIG_ANDROID_AB
+	char slot_suffix[3] = {0};
+	char slot_info[21] = "android_slotsufix=";
+
+	if (ab_get_slot_suffix(slot_suffix))
+		goto out;
+
+	strcat(slot_info, slot_suffix);
+	env_update("bootargs", slot_info);
+out:
+#endif
 
 	if (prompt)
 		cfg->prompt = 1;

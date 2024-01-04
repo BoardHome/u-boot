@@ -620,6 +620,14 @@ config ANDROID_AB
 	  allows a bootloader to try a new version of the system but roll back
 	  to previous version if the new one didn't boot all the way.
 
+config AB_OVERYLAYFS
+	bool "Support overlayfs for Android A/B"
+	default n
+	depends on ANDROID_AB
+	help
+	  If enabled, bootargs "root=" will use PARTLABEL not PARTUUID
+
+
 config ANDROID_WRITE_KEYBOX
 	bool "Support Write Keybox"
 	default y

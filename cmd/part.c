@@ -142,6 +142,39 @@ static int do_part_start(int argc, char * const argv[])
 	return 0;
 }
 
+static int do_part_name(int argc, char * const argv[])
+{
+	struct blk_desc *desc;
+	disk_partition_t info;
+	char buf[PART_NAME_LEN] = { 0 };
+	int part;
+	int err;
+	int ret;
+
+	if (argc < 3)
+		return CMD_RET_USAGE;
+	if (argc > 4)
+		return CMD_RET_USAGE;
+
+	part = simple_strtoul(argv[2], NULL, 0);
+
+	ret = blk_get_device_by_str(argv[0], argv[1], &desc);
+	if (ret < 0)
+		return 1;
+
+	err = part_get_info(desc, part, &info);
+	if (err)
+		return 1;
+
+	strcpy(buf,(char *)info.name);
+	if (argc > 3)
+		env_set(argv[3], buf);
+	else
+		printf("%s\n", buf);
+
+	return 0;
+}
+
 static int do_part_size(int argc, char * const argv[])
 {
 	struct blk_desc *desc;
@@ -187,6 +220,8 @@ static int do_part(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		return do_part_list(argc - 2, argv + 2);
 	else if (!strcmp(argv[1], "start"))
 		return do_part_start(argc - 2, argv + 2);
+	else if (!strcmp(argv[1], "name"))
+		return do_part_name(argc - 2, argv + 2);
 	else if (!strcmp(argv[1], "size"))
 		return do_part_size(argc - 2, argv + 2);
 
@@ -207,6 +242,8 @@ U_BOOT_CMD(
 	"      flags can be -bootable (list only bootable partitions)\n"
 	"part start <interface> <dev> <part> <varname>\n"
 	"    - set environment variable to the start of the partition (in blocks)\n"
+	"part name <interface> <dev> <part> <varname>\n"
+	"    - set environment variable to the name of the partition (in blocks)\n"
 	"part size <interface> <dev> <part> <varname>\n"
 	"    - set environment variable to the size of the partition (in blocks)"
 );

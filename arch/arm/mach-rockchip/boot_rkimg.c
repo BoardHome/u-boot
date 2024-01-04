@@ -38,6 +38,22 @@
 #include <u-boot/sha256.h>
 #include <linux/usb/phy-rockchip-usb2.h>
 
+char *my_strtok(char *str, const char *delim, char **saveptr)  
+{  
+    char *token;  
+    if (!str) {  
+        if (!*saveptr)  
+            return NULL;  
+        str = *saveptr;  
+    }  
+    token = strsep(&str, delim);  
+    if (token != NULL)  
+        *saveptr = str;  
+    else  
+        *saveptr = NULL;  
+    return token;  
+} 
+
 DECLARE_GLOBAL_DATA_PTR;
 
 __weak int rk_board_early_fdt_fixup(void *blob)
@@ -478,9 +494,34 @@ static int rockchip_read_distro_dtb(void *fdt_addr)
 	char devnum_part[12];
 	char fdt_hex_str[19];
 	char *fs_argv[5];
+	char * token;
+	char * bootpart_ab;
+	char *rest;
+	struct blk_desc *dev_desc = NULL;
 
-	if (!rockchip_get_bootdev() || !fdt_addr)
+#ifdef CONFIG_ANDROID_AB
+	char *ab_slot;
+	char bootdev_part[20] = "boot";
+	disk_partition_t part_info;
+	disk_partition_t tmp_part_info;
+	int ret = 0;
+	int part = 0;
+#endif
+
+	dev_desc = rockchip_get_bootdev();
+	if (!dev_desc || !fdt_addr)
 		return -ENODEV;
+
+#ifdef CONFIG_ANDROID_AB
+	ab_slot = env_get("ab_slot");
+	strcat(bootdev_part , ab_slot);
+	ret = part_get_info_by_name(dev_desc, bootdev_part, &part_info);
+	if (ret < 0) {
+		printf("%s: Could not found boot ab partition,\n",
+		       __func__);
+		return -EINVAL;
+	}
+#endif
 
 	if (run_command_list(cmd, -1, 0)) {
 		printf("Failed to find -bootable\n");
@@ -491,22 +532,59 @@ static int rockchip_read_distro_dtb(void *fdt_addr)
 	if (!devplist)
 		devplist = "1";
 
+	rest = devplist;
 	devtype = env_get("devtype");
 	devnum = env_get("devnum");
-	sprintf(devnum_part, "%s:%s", devnum, devplist);
-	sprintf(fdt_hex_str, "0x%lx", (ulong)fdt_addr);
 
-	fs_argv[0] = "load";
-	fs_argv[1] = devtype,
-	fs_argv[2] = devnum_part;
-	fs_argv[3] = fdt_hex_str;
-	fs_argv[4] = CONFIG_ROCKCHIP_EARLY_DISTRO_DTB_PATH;
+	token = my_strtok(rest, " ", &rest);
+	while (token != NULL) {
+		printf("extboot part -> %s\n", token);
+		bootpart_ab = token;
+#ifdef CONFIG_ANDROID_AB
+		part = simple_strtoul(token, NULL, 0);
+#endif
+		sprintf(devnum_part, "%s:%s", devnum, token);
+		sprintf(fdt_hex_str, "0x%lx", (ulong)fdt_addr);
 
-	if (do_load(NULL, 0, 5, fs_argv, FS_TYPE_ANY))
-		return -EIO;
+		fs_argv[0] = "load";
+		fs_argv[1] = devtype,
+			fs_argv[2] = devnum_part;
+		fs_argv[3] = fdt_hex_str;
+		fs_argv[4] = CONFIG_ROCKCHIP_EARLY_DISTRO_DTB_PATH;
 
-	if (fdt_check_header(fdt_addr))
-		return -EBADF;
+		token = my_strtok(NULL, " ", &rest);
+		
+#ifdef CONFIG_ANDROID_AB
+		ret = part_get_info(dev_desc, part, &tmp_part_info);
+		if (ret)
+		        continue;
+
+		if(strcmp((char *)tmp_part_info.name, (char *)part_info.name)){
+			printf("%s , %s\n",(char *)tmp_part_info.name, (char *)part_info.name);
+			continue;
+		}
+
+#endif
+		if (do_load(NULL, 0, 5, fs_argv, FS_TYPE_ANY) ){
+			if(token == NULL)
+				return -EIO;
+			else
+				continue;
+		} 
+
+		if (fdt_check_header(fdt_addr)){
+			if(token == NULL)
+				return -EBADF;
+			else
+				continue;
+		}
+		
+#ifdef CONFIG_ANDROID_AB
+		env_set("bootpart_ab", bootpart_ab);
+#endif
+		break;
+		
+	}
 
 	printf("DTB(Distro): %s\n", CONFIG_ROCKCHIP_EARLY_DISTRO_DTB_PATH);
 

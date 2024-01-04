@@ -350,6 +350,7 @@ AvbABFlowResult rk_avb_ab_slot_select(AvbABOps* ab_ops,char* select_slot)
 
 	if (last_slot_index != slot_index_to_boot) {
 		last_slot_index = slot_index_to_boot;
+		env_set("ab_slot",select_slot);
 		printf("A/B-slot: %s, successful: %d, tries-remain: %d\n",
 		       select_slot,
 		       ab_data.slots[slot_index_to_boot].successful_boot,
