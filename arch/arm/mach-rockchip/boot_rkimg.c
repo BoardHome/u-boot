@@ -500,7 +500,7 @@ static int rockchip_read_distro_dtb(void *fdt_addr)
 	struct blk_desc *dev_desc = NULL;
 
 #ifdef CONFIG_ANDROID_AB
-	char *ab_slot;
+	char *ab_slot = NULL;
 	char bootdev_part[20] = "boot";
 	disk_partition_t part_info;
 	disk_partition_t tmp_part_info;
@@ -514,7 +514,8 @@ static int rockchip_read_distro_dtb(void *fdt_addr)
 
 #ifdef CONFIG_ANDROID_AB
 	ab_slot = env_get("ab_slot");
-	strcat(bootdev_part , ab_slot);
+	if(ab_slot)
+		strcat(bootdev_part , ab_slot);
 	ret = part_get_info_by_name(dev_desc, bootdev_part, &part_info);
 	if (ret < 0) {
 		printf("%s: Could not found boot ab partition,\n",
