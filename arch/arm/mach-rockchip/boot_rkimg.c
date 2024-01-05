@@ -495,11 +495,11 @@ static int rockchip_read_distro_dtb(void *fdt_addr)
 	char fdt_hex_str[19];
 	char *fs_argv[5];
 	char * token;
-	char * bootpart_ab;
 	char *rest;
 	struct blk_desc *dev_desc = NULL;
 
 #ifdef CONFIG_ANDROID_AB
+	char * bootpart_ab;
 	char *ab_slot = NULL;
 	char bootdev_part[20] = "boot";
 	disk_partition_t part_info;
@@ -540,8 +540,8 @@ static int rockchip_read_distro_dtb(void *fdt_addr)
 	token = my_strtok(rest, " ", &rest);
 	while (token != NULL) {
 		printf("extboot part -> %s\n", token);
-		bootpart_ab = token;
 #ifdef CONFIG_ANDROID_AB
+		bootpart_ab = token;
 		part = simple_strtoul(token, NULL, 0);
 #endif
 		sprintf(devnum_part, "%s:%s", devnum, token);
