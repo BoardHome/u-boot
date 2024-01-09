@@ -565,24 +565,17 @@ static int rockchip_read_distro_dtb(void *fdt_addr)
 			continue;
 		}
 
+		env_set("bootpart_ab", bootpart_ab);
+
 #endif
 		if (do_load(NULL, 0, 5, fs_argv, FS_TYPE_ANY) ){
-			if(token == NULL)
-				return -EIO;
-			else
-				continue;
+			return -EIO;
 		} 
 
 		if (fdt_check_header(fdt_addr)){
-			if(token == NULL)
-				return -EBADF;
-			else
-				continue;
+			return -EBADF;
 		}
-		
-#ifdef CONFIG_ANDROID_AB
-		env_set("bootpart_ab", bootpart_ab);
-#endif
+
 		break;
 		
 	}
