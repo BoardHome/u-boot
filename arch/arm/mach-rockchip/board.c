@@ -127,11 +127,14 @@ static int rockchip_set_ethaddr(void)
 	}
 
 	if (need_write) {
+		printf("skip uboot vendor write mac address\n");
+		/*
 		ret = vendor_storage_write(LAN_MAC_ID,
 					   ethaddr, sizeof(ethaddr));
 		if (ret < 0)
 			printf("%s: vendor_storage_write failed %d\n",
 			       __func__, ret);
+		*/
 	}
 #endif
 
