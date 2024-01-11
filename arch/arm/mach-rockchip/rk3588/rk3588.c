@@ -959,14 +959,14 @@ int arch_cpu_init(void)
 	 */
 	writel(QOS_PRIORITY_LEVEL(3, 3), VOP_M0_PRIORITY_REG);
 	writel(QOS_PRIORITY_LEVEL(3, 3), VOP_M1_PRIORITY_REG);
-#endif
-
-	/* Select usb otg0 phy status to 0 that make rockusb can work at high-speed */
-	writel(0x00080008, USBGRF_BASE + USB_GRF_USB3OTG0_CON1);
 
 	/* Increase MMU600PHP QOS from 0 to 4 */
 	writel(QOS_PRIORITY_LEVEL(4, 4), QOS_MMU600PHP_TBU_BASE);
 	writel(QOS_PRIORITY_LEVEL(4, 4), QOS_MMU600PHP_TCU_BASE);
+#endif
+
+	/* Select usb otg0 phy status to 0 that make rockusb can work at high-speed */
+	writel(0x00080008, USBGRF_BASE + USB_GRF_USB3OTG0_CON1);
 
 	return 0;
 }
