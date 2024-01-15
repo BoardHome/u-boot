@@ -137,6 +137,7 @@ static int regulators_parse_assigned_mem_state(struct udevice *dev)
 	return 0;
 }
 
+#ifdef CONFIG_IRQ
 static int regulators_enable_assigned_state_mem(struct udevice *dev)
 {
 	struct charge_animation_pdata *pdata = dev_get_platdata(dev);
@@ -186,7 +187,7 @@ static void pmics_resume(void)
 {
 	pmics_ops(false);
 }
-
+#endif
 static int charge_animation_ofdata_to_platdata(struct udevice *dev)
 {
 	struct charge_animation_pdata *pdata = dev_get_platdata(dev);
@@ -1061,10 +1062,21 @@ static int charge_animation_probe(struct udevice *dev)
 {
 	struct charge_animation_priv *priv = dev_get_priv(dev);
 	struct charge_animation_pdata *pdata = dev_get_platdata(dev);
-
+	__maybe_unused struct udevice *rk_pm_cfg;
 	int ret, soc;
 
-	
+#ifdef CONFIG_ROCKCHIP_PM_CONFIG
+	ret = uclass_get_device_by_driver(UCLASS_MISC,
+					  DM_GET_DRIVER(rockchip_pm_config),
+					  &rk_pm_cfg);
+	if (ret) {
+		if (ret == -ENODEV)
+			printf("Can't find rockchip_pm_config\n");
+		else
+			printf("Get rockchip_pm_config failed: %d\n", ret);
+	}
+#endif
+
 	/* Get PMIC: used for power off system  */
 	ret = uclass_get_device(UCLASS_PMIC, 0, &priv->pmic);
 	if (ret) {
