@@ -28,7 +28,7 @@ static void serdes_panel_init(struct serdes *serdes)
 		       serdes->chip_data->name);
 }
 
-static void serdes_panel_prepare(struct rockchip_panel *panel)
+static int serdes_panel_prepare(struct rockchip_panel *panel)
 {
 	struct udevice *dev = panel->dev;
 	struct serdes *serdes = dev_get_priv(dev);
@@ -38,6 +38,7 @@ static void serdes_panel_prepare(struct rockchip_panel *panel)
 
 	SERDES_DBG_MFD("%s: %s %s\n", __func__, serdes->dev->name,
 		       serdes->chip_data->name);
+	return 0;
 }
 
 static void serdes_panel_unprepare(struct rockchip_panel *panel)
