@@ -86,6 +86,12 @@
 	#define BOOT_TARGET_RKNAND(func)
 #endif
 
+#if CONFIG_IS_ENABLED(CMD_SCSI)
+	#define BOOT_TARGET_SCSI(func) func(SCSI, scsi, 0)
+#else
+	#define BOOT_TARGET_SCSI(func)
+#endif
+
 #if CONFIG_IS_ENABLED(CMD_USB)
 	#define BOOT_TARGET_USB(func) func(USB, usb, 0)
 #else
@@ -108,6 +114,7 @@
 	BOOT_TARGET_MMC(func) \
 	BOOT_TARGET_MTD(func) \
 	BOOT_TARGET_RKNAND(func) \
+	BOOT_TARGET_SCSI(func) \
 	BOOT_TARGET_USB(func) \
 	BOOT_TARGET_PXE(func) \
 	BOOT_TARGET_DHCP(func)
@@ -177,7 +184,8 @@
 	"boot_android ${devtype} ${devnum};"	\
 	"boot_fit;"				\
 	"bootrkp;"				\
-	"run distro_bootcmd;"
+	"run distro_bootcmd;"			\
+	"if test ${devtype} = \"mtd\";then mtd erase nor0 0x0 0x288000; mtd erase nor0 0x800000 0x3000;mtd erase nor0 0xA00000 0x3000;rockusb 0 mmc 0;fi"
 #endif
 
 #endif /* CONFIG_SPL_BUILD */

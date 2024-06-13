@@ -3747,6 +3747,13 @@ static int rockchip_vop2_init(struct display_state *state)
 	    !(cstate->feature & VOP_FEATURE_OUTPUT_10BIT))
 		conn_state->output_mode = ROCKCHIP_OUT_MODE_P888;
 
+	if (is_uv_swap(conn_state->bus_format, conn_state->output_mode))
+		vop2_mask_write(vop2, RK3568_VP0_DSP_CTRL + vp_offset,
+				DATA_SWAP_MASK, DATA_SWAP_SHIFT, DSP_RB_SWAP,
+				false);
+	else
+		vop2_mask_write(vop2, RK3568_VP0_DSP_CTRL + vp_offset, DATA_SWAP_MASK,
+				DATA_SWAP_SHIFT, cstate->crtc->vps[cstate->crtc_id].bg_swap << 0 | cstate->crtc->vps[cstate->crtc_id].rb_swap << 1 | cstate->crtc->vps[cstate->crtc_id].rg_swap << 2, false);
 	vop2_post_color_swap(state);
 
 	vop2_mask_write(vop2, RK3568_VP0_DSP_CTRL + vp_offset, OUT_MODE_MASK,

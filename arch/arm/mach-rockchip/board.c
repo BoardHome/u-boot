@@ -56,6 +56,7 @@
 #ifdef CONFIG_ROCKCHIP_EINK_DISPLAY
 #include <rk_eink.h>
 #endif
+#include <adc.h>
 
 #ifdef CONFIG_SERDES_DISPLAY
 #include <serdes-display-core.h>
@@ -457,6 +458,62 @@ static void scan_run_cmd(void)
 	}
 }
 
+#if defined(CONFIG_ROCKCHIP_RK3568) && defined(CONFIG_USING_KERNEL_DTB)
+static bool fdt_property_exist(char *path, char *property)
+{
+	char string[1024] = {0};
+
+	sprintf(string,"fdt get value store_value %s %s", path, property);
+	if (!run_command(string, 0)) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+static void compatible_with_rk356x_bootup(void)
+{
+	if (fdt_property_exist("/", "model")) {
+		//u32 phandle;
+		char *store_value = env_get("store_value");
+		//printf("model = %s\n", store_value);
+		if (strstr(store_value, "Firefly RK3568-ROC-PC") != NULL) {
+			u32 adc_val;
+			int ret = 0;
+
+			for (int i = 0; i < 10; i++) {
+				ret = adc_channel_single_shot("saradc", 1, &adc_val);
+				if (ret) {
+					printf("failed to get saradc1 value\n");
+				} else {
+					break;
+				}
+			}
+			printf("saradc1 value = %d\n", adc_val);
+			if ((adc_val > 450) && (adc_val < 600)) {  // 527+-
+				/* ROC-RK3568-PC SE */
+				printf("Board: ROC-RK3568-PC SE\n");
+				// gmac0
+				run_command("fdt set /ethernet@fe2a0000 tx_delay <0x41>", 0);
+				run_command("fdt set /ethernet@fe2a0000 rx_delay <0x38>", 0);
+				// gmac1
+				run_command("fdt set /ethernet@fe010000 tx_delay <0x4c>", 0);
+				run_command("fdt set /ethernet@fe010000 rx_delay <0x30>", 0);
+			} else {
+				/* ROC-RK3568-PC */
+				printf("Borad: ROC-RK3568-PC\n");
+				// gmac0
+				run_command("fdt set /ethernet@fe2a0000 tx_delay <0x3c>", 0);
+				run_command("fdt set /ethernet@fe2a0000 rx_delay <0x2f>", 0);
+				// gmac1
+				run_command("fdt set /ethernet@fe010000 tx_delay <0x4f>", 0);
+				run_command("fdt set /ethernet@fe010000 rx_delay <0x26>", 0);
+			}
+		}
+	}
+}
+#endif
+
 int board_late_init(void)
 {
 #ifdef CONFIG_ROCKCHIP_SET_ETHADDR
@@ -484,6 +541,9 @@ int board_late_init(void)
 #endif
 #ifdef CONFIG_ROCKCHIP_EINK_DISPLAY
 	rockchip_eink_show_uboot_logo();
+#endif
+#if defined(CONFIG_ROCKCHIP_RK3568) && defined(CONFIG_USING_KERNEL_DTB)
+	compatible_with_rk356x_bootup();
 #endif
 #if (CONFIG_ROCKCHIP_BOOT_MODE_REG > 0)
 	setup_boot_mode();
